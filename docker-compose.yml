@@ -1,0 +1,9 @@
+services:
+  md2video:
+    build: .
+    volumes:
+      - ./content:/app/content
+      - ./video_scripts:/app/video_scripts
+      - ./video_output:/app/video_output
+    env_file:
+      - .env
