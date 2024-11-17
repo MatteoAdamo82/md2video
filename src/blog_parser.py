@@ -4,6 +4,7 @@ import frontmatter
 import logging
 from typing import List, Dict
 from datetime import datetime
+import re
 
 class BlogParser:
     def __init__(self, content_dir: str):
@@ -13,6 +14,39 @@ class BlogParser:
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
+
+    def parse_markdown_content(self, content: str) -> List[Dict]:
+        """Parse il contenuto markdown in sezioni strutturate"""
+        sections = []
+        current_section = {"level": 0, "title": "", "content": []}
+        lines = content.split('\n')
+
+        for line in lines:
+            # Identifica gli heading
+            heading_match = re.match(r'^(#{1,6})\s+(.+)$', line)
+
+            if heading_match:
+                # Se c'era una sezione precedente, salvala
+                if current_section["content"]:
+                    sections.append(current_section)
+
+                # Crea una nuova sezione
+                level = len(heading_match.group(1))  # Numero di #
+                title = heading_match.group(2).strip()
+                current_section = {
+                    "level": level,
+                    "title": title,
+                    "content": []
+                }
+            elif line.strip():
+                # Aggiunge linee non vuote al contenuto corrente
+                current_section["content"].append(line.strip())
+
+        # Aggiungi l'ultima sezione se contiene contenuto
+        if current_section["content"]:
+            sections.append(current_section)
+
+        return sections
 
     def fetch_post_content(self, file_path: str) -> str:
         """Recupera il contenuto del post dal file MD"""
@@ -52,11 +86,15 @@ class BlogParser:
                 content = self.fetch_post_content(file_data['path'])
 
                 if content:
+                    # Parse il contenuto in sezioni strutturate
+                    parsed_content = self.parse_markdown_content(content)
+
                     post = {
                         'title': file_data['metadata'].get('title', ''),
                         'url': file_data['metadata'].get('url', ''),
                         'date': file_data['date'].strftime('%Y-%m-%d'),
-                        'content': content,
+                        'content': content,  # contenuto originale
+                        'sections': parsed_content  # contenuto strutturato
                     }
                     posts.append(post)
                     self.logger.info(f"Successfully processed: {post['title']}")
