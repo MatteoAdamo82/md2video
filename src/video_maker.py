@@ -5,53 +5,81 @@ from gtts import gTTS
 from moviepy.editor import *
 import textwrap
 import logging
+from dotenv import load_dotenv
 
 class VideoMaker:
     def __init__(self, output_dir: str = 'video_output'):
+        load_dotenv()
+
         self.output_dir = output_dir
+        self.temp_dir = os.getenv('TEMP_DIR', 'temp')
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        logging.basicConfig(level=logging.INFO)
+        # Video settings
+        self.video_width = int(os.getenv('VIDEO_WIDTH', '1920'))
+        self.video_height = int(os.getenv('VIDEO_HEIGHT', '1080'))
+        self.video_fps = int(os.getenv('VIDEO_FPS', '24'))
+        self.bg_color = os.getenv('VIDEO_BGCOLOR', 'white')
+        self.text_color = os.getenv('VIDEO_TEXT_COLOR', 'black')
+        self.font_size = int(os.getenv('VIDEO_FONT_SIZE', '60'))
+        self.font_path = os.getenv('VIDEO_FONT_PATH', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
+
+        # Text settings
+        self.text_wrap_width = int(os.getenv('TEXT_WRAP_WIDTH', '50'))
+        self.text_line_height = int(os.getenv('TEXT_LINE_HEIGHT', '70'))
+        self.text_start_y = int(os.getenv('TEXT_START_Y', '100'))
+
+        # Audio settings
+        self.tts_language = os.getenv('TTS_LANGUAGE', 'it')
+
+        # Logging setup
+        logging.basicConfig(
+            level=os.getenv('LOG_LEVEL', 'INFO'),
+            format=os.getenv('LOG_FORMAT', '%(asctime)s - %(levelname)s - %(message)s')
+        )
         self.logger = logging.getLogger(__name__)
 
-    def create_slide(self, text: str, filename: str,
-                    size=(1920, 1080),
-                    bg_color='white',
-                    text_color='black'):
+    def create_slide(self, text: str, filename: str) -> str:
         """Crea una slide con testo"""
         # Crea immagine
-        image = Image.new('RGB', size, bg_color)
+        image = Image.new('RGB', (self.video_width, self.video_height), self.bg_color)
         draw = ImageDraw.Draw(image)
 
-        # Usa un font di sistema
+        # Usa il font configurato
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 60)
+            font = ImageFont.truetype(self.font_path, self.font_size)
         except:
+            self.logger.warning(f"Could not load font {self.font_path}, using default")
             font = ImageFont.load_default()
 
         # Wrap del testo
-        wrapper = textwrap.TextWrapper(width=50)
+        wrapper = textwrap.TextWrapper(width=self.text_wrap_width)
         text_lines = wrapper.wrap(text)
 
         # Posiziona il testo
-        y = 100
+        y = self.text_start_y
         for line in text_lines:
             width = draw.textlength(line, font=font)
-            draw.text(((size[0] - width) / 2, y), line, font=font, fill=text_color)
-            y += 70
+            draw.text(
+                ((self.video_width - width) / 2, y),
+                line,
+                font=font,
+                fill=self.text_color
+            )
+            y += self.text_line_height
 
         image.save(filename)
         return filename
 
-    def text_to_speech(self, text: str, filename: str, lang='it'):
+    def text_to_speech(self, text: str, filename: str) -> str:
         """Converte testo in audio"""
-        tts = gTTS(text=text, lang=lang)
+        tts = gTTS(text=text, lang=self.tts_language)
         tts.save(filename)
         return filename
 
     def create_video_segment(self, text: str, segment_number: int) -> VideoFileClip:
         """Crea un segmento di video da testo"""
-        temp_dir = Path(self.output_dir) / 'temp'
+        temp_dir = Path(self.output_dir) / self.temp_dir
         temp_dir.mkdir(exist_ok=True)
 
         # Crea slide e audio
@@ -71,12 +99,10 @@ class VideoMaker:
         """Crea un video completo da uno script"""
         try:
             self.logger.info(f"Creating video for: {script_content['title']}")
-
-            # Crea i segmenti del video
             clips = []
 
             # Intro
-            intro_text = f"Ciao a tutti e bentornati sul canale!\nOggi parleremo di {script_content['title']}"
+            intro_text = f"{os.getenv('VIDEO_INTRO_TEXT')}\nOggi parleremo di {script_content['title']}"
             clips.append(self.create_video_segment(intro_text, 0))
 
             # Contenuto principale
@@ -86,8 +112,7 @@ class VideoMaker:
                     clips.append(self.create_video_segment(para, i))
 
             # Outro
-            outro_text = "Grazie per aver guardato questo video!\nNon dimenticare di iscriverti al canale!"
-            clips.append(self.create_video_segment(outro_text, len(paragraphs) + 1))
+            clips.append(self.create_video_segment(os.getenv('VIDEO_OUTRO_TEXT'), len(paragraphs) + 1))
 
             # Concatena tutti i clip
             final_video = concatenate_videoclips(clips)
@@ -100,7 +125,7 @@ class VideoMaker:
 
             final_video.write_videofile(
                 output_file,
-                fps=24,
+                fps=self.video_fps,
                 codec='libx264',
                 audio_codec='aac'
             )
@@ -113,7 +138,7 @@ class VideoMaker:
             raise
         finally:
             # Pulisci i file temporanei
-            temp_dir = Path(self.output_dir) / 'temp'
+            temp_dir = Path(self.output_dir) / self.temp_dir
             if temp_dir.exists():
                 for file in temp_dir.glob('*'):
                     file.unlink()
