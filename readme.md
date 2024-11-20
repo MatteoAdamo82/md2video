@@ -19,6 +19,9 @@ docker-compose up -d
 Il tool può essere eseguito in modalità CLI con i seguenti comandi:
 
 ```bash
+# Avvia app con CLI
+docker-compose run --rm md2video
+
 # Genera solo gli script XML
 docker-compose run --rm md2video script
 
@@ -33,12 +36,12 @@ docker-compose run --rm md2video genera
 
 ```
 md2video/
-├── content/posts/         # Directory contenente i post markdown
-├── video_output/         # Directory output per i video
-│   ├── assets/          # Directory per gli sfondi personalizzati
-│   ├── temp/           # Directory temporanea (auto-generata)
-│   └── videos/         # Video generati
-└── scripts/             # Script XML generati
+├── content/posts/          # Directory contenente i post markdown
+├── video_output/           # Directory output per i video
+│   ├── assets/             # Directory per gli sfondi personalizzati
+│   ├── temp/               # Directory temporanea (auto-generata)
+│   └── videos/             # Video generati
+└── scripts/                # Script XML generati
 ```
 
 ## Personalizzazione degli Script XML

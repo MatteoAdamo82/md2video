@@ -154,40 +154,58 @@ class VideoMaker:
 
     def text_to_speech(self, text: str, filename: str, pause: float = 0.5, lang='it') -> str:
         try:
+            # File temporaneo per l'audio iniziale
+            temp_file = filename.replace('.mp3', '_temp.mp3')
+
+            # Genera il testo parlato
             tts = gTTS(text=text, lang=lang, slow=False)
-            tts.save(filename)
+            tts.save(temp_file)
 
             # Se è richiesta una pausa, aggiungiamola in modo più sicuro
-            if pause > 0:
-                # Carica l'audio originale
-                audio = AudioFileClip(filename)
+            try:
+                audio = AudioFileClip(temp_file)
 
-                # Crea un array di zeri per il silenzio
-                sample_rate = 44100  # standard sample rate
-                silence_duration = int(pause * sample_rate)
-                silence = AudioClip(lambda t: 0, duration=pause)
+                if pause > 0:
+                    # Crea un silenzio della durata specificata
+                    silence = AudioClip(lambda t: 0, duration=pause)
 
-                # Concatena con un crossfade minimo per evitare glitch
-                final_audio = concatenate_audioclips([audio, silence],
-                                                   method="compose",
-                                                   crossfadein=0.1,
-                                                   crossfadeout=0.1)
+                    # Crea il clip finale
+                    final_audio = CompositeAudioClip([
+                        audio,
+                        silence.set_start(audio.duration)
+                    ])
+                else:
+                    final_audio = audio
 
                 # Salva l'audio finale
-                final_audio.write_audiofile(filename,
-                                          fps=sample_rate,
-                                          nbytes=2,
-                                          codec='libmp3lame',
-                                          bitrate='192k',
-                                          ffmpeg_params=["-ac", "2"])  # forza output stereo
+                final_audio.write_audiofile(
+                    filename,
+                    fps=44100,
+                    nbytes=2,
+                    codec='libmp3lame',
+                    bitrate='192k',
+                    ffmpeg_params=["-ac", "2"]
+                )
 
-                # Chiudi i clips per liberare memoria
-                audio.close()
-                final_audio.close()
+            finally:
+                # Pulisci e chiudi tutto
+                if 'audio' in locals():
+                    audio.close()
+                if 'silence' in locals():
+                    silence.close()
+                if 'final_audio' in locals():
+                    final_audio.close()
+
+                # Rimuovi il file temporaneo
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
 
             return filename
+
         except Exception as e:
             self.logger.error(f"Error in text-to-speech: {str(e)}")
+            if os.path.exists(temp_file):
+                os.remove(temp_file)
             raise
 
     def create_video_segment(self, section: dict, segment_number: int) -> VideoFileClip:
