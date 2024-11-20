@@ -1,27 +1,21 @@
 import os
-from docx import Document
-from datetime import datetime
+from pathlib import Path
 import logging
 from typing import Dict, List, Optional, Callable
 from dotenv import load_dotenv
 from .blog_parser import BlogParser
 from .video_maker import VideoMaker
+from .script_generator import ScriptGenerator
 import sys
-from pathlib import Path
 
-class VideoGenerator:
+class VideoManager:
     def __init__(self):
         load_dotenv()
         self.content_dir = os.getenv('HUGO_CONTENT_DIR', 'content/posts')
         self.num_posts = int(os.getenv('NUM_POSTS', '5'))
-        self.output_dir = os.getenv('SCRIPT_OUTPUT_DIR', 'video_scripts')
-        self.video_output_dir = os.getenv('VIDEO_OUTPUT_DIR', 'video_output')
+        self.output_dir = os.getenv('SCRIPT_OUTPUT_DIR', 'scripts')
+        self.video_output_dir = os.getenv('VIDEO_OUTPUT_DIR', 'videos')
 
-        # Messaggi predefiniti
-        self.intro_text = os.getenv('VIDEO_INTRO_TEXT', 'Ciao a tutti e bentornati sul canale!')
-        self.outro_text = os.getenv('VIDEO_OUTRO_TEXT', 'Grazie per aver guardato questo video!')
-
-        # Configura logging
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
@@ -32,161 +26,125 @@ class VideoGenerator:
         for directory in [self.output_dir, self.video_output_dir]:
             Path(directory).mkdir(parents=True, exist_ok=True)
 
-    def generate_scripts(self, message_callback=None, progress_callback=None):
-            """Genera solo gli script dai post"""
-            try:
-                self.log_message(message_callback, "📥 Fetching recent posts...")
-                parser = BlogParser(self.content_dir)
-                posts = parser.fetch_posts(self.num_posts)
-
-                if not posts:
-                    self.log_message(message_callback, "❌ No posts found.")
-                    return []
-
-                results = []
-                total_posts = len(posts)
-
-                for i, post in enumerate(posts, 1):
-                    try:
-                        self.update_progress(progress_callback, (i * 100) // total_posts,
-                                           f"Creating script {i} of {total_posts}")
-                        script_file, _ = self.create_script(post)
-                        results.append({
-                            'title': post['title'],
-                            'script_file': script_file,
-                            'url': post['url']
-                        })
-                        self.log_message(message_callback, f"✅ Created script for: {post['title']}")
-                    except Exception as e:
-                        self.log_message(message_callback, f"❌ Error: {str(e)}")
-
-                return results
-            except Exception as e:
-                raise Exception(f"Error generating scripts: {str(e)}")
-
-    def list_available_scripts(self):
+    def list_available_scripts(self) -> List[Path]:
         """Lista gli script disponibili"""
+        return list(Path(self.output_dir).glob('*.xml'))
+
+    def generate_scripts(self, message_callback=None, progress_callback=None) -> List[Dict]:
+        """Genera solo gli script dai post"""
         try:
-            return list(Path(self.output_dir).glob('*.docx'))
+            self.log_message(message_callback, "📥 Fetching recent posts...")
+            parser = BlogParser(self.content_dir)
+            posts = parser.fetch_posts(self.num_posts)
+
+            if not posts:
+                self.log_message(message_callback, "❌ No posts found.")
+                return []
+
+            results = []
+            total_posts = len(posts)
+            script_generator = ScriptGenerator(self.output_dir)
+
+            for i, post in enumerate(posts, 1):
+                try:
+                    self.update_progress(progress_callback, (i * 100) // total_posts,
+                                      f"Creating script {i} of {total_posts}")
+                    script_file, _ = script_generator.generate_xml_script(post)
+                    results.append({
+                        'title': post['title'],
+                        'script_file': script_file,
+                        'url': post['url']
+                    })
+                    self.log_message(message_callback, f"✅ Created script for: {post['title']}")
+                except Exception as e:
+                    self.log_message(message_callback, f"❌ Error: {str(e)}")
+
+            return results
         except Exception as e:
-            raise Exception(f"Error listing scripts: {str(e)}")
+            raise Exception(f"Error generating scripts: {str(e)}")
 
     def generate_video_from_script(self, script_path: str, message_callback=None,
-                                 progress_callback=None):
+                                progress_callback=None) -> str:
         """Genera un video da uno script esistente"""
         try:
-            doc = Document(script_path)
-            # Qui andrebbe la logica di conversione da docx a script_content
-            # Per ora restituiamo un errore
-            raise NotImplementedError("Video generation from script not yet implemented")
+            video_maker = VideoMaker(self.video_output_dir)
+            return video_maker.create_video(script_path)
         except Exception as e:
             raise Exception(f"Error generating video: {str(e)}")
 
-    def generate_video_from_script(self, script_path: str, message_callback=None,
-                                     progress_callback=None):
-            """Genera un video da uno script esistente"""
-            try:
-                self.log_message(message_callback, "📄 Lettura script...")
-                doc = Document(script_path)
-
-                script_content = {
-                    'title': doc.paragraphs[0].text.replace('Script Video: ', ''),
-                    'sections': []
-                }
-
-                # Estrai le sezioni
-                current_section = None
-                for para in doc.paragraphs[3:]:  # Salta intestazione e metadati
-                    if para.style.name.startswith('Heading'):
-                        if current_section:
-                            script_content['sections'].append(current_section)
-                        current_section = {
-                            'level': int(para.style.name[-1]),
-                            'title': para.text,
-                            'content': []
-                        }
-                    elif current_section and para.text:
-                        current_section['content'].append(para.text)
-
-                if current_section:
-                    script_content['sections'].append(current_section)
-
-                self.update_progress(progress_callback, 30, "Script analizzato")
-
-                # Genera il video
-                video_maker = VideoMaker(self.video_output_dir)
-                video_file = video_maker.create_video(script_content)
-
-                self.update_progress(progress_callback, 100, "Video completato")
-                return video_file
-
-            except Exception as e:
-                raise Exception(f"Error generating video: {str(e)}")
-    def create_script(self, post: Dict) -> tuple[str, Dict]:
-        """Crea uno script formattato dal post"""
+    def process_post(self, post: Dict, message_callback: Optional[Callable] = None,
+                    progress_callback: Optional[Callable] = None) -> Dict:
+        """Processa un singolo post"""
         try:
-            doc = Document()
-            script_content = {
+            self.update_progress(progress_callback, 0, f"Processing: {post['title']}")
+            self.log_message(message_callback, f"Starting processing of: {post['title']}")
+
+            # Genera script
+            script_generator = ScriptGenerator(self.output_dir)
+            self.log_message(message_callback, f"Creating script for: {post['title']}")
+            script_file, _ = script_generator.generate_xml_script(post)
+            self.update_progress(progress_callback, 30, f"Script created for: {post['title']}")
+
+            # Genera video
+            self.log_message(message_callback, f"Creating video for: {post['title']}")
+            video_maker = VideoMaker(self.video_output_dir)
+            video_file = video_maker.create_video(script_file)
+            self.update_progress(progress_callback, 100, f"Video created for: {post['title']}")
+
+            return {
                 'title': post['title'],
-                'url': post['url'],
-                'date': post['date'],
-                'sections': []
+                'script_file': script_file,
+                'video_file': video_file,
+                'url': post['url']
             }
-
-            # Intestazione del documento
-            doc.add_heading(f'Script Video: {post["title"]}', 0)
-            doc.add_paragraph(f'Post originale: {post["url"]}')
-            doc.add_paragraph(f'Data post: {post["date"]}')
-
-            # Intro
-            intro_section = {
-                'level': 1,
-                'title': 'Introduzione',
-                'content': [self.intro_text, f'Oggi parleremo di {post["title"]}']
-            }
-            script_content['sections'].append(intro_section)
-
-            doc.add_heading('🎬 Introduzione', 1)
-            doc.add_paragraph(self.intro_text)
-            doc.add_paragraph(f'Oggi parleremo di {post["title"]}')
-
-            # Contenuto principale
-            doc.add_heading('📝 Contenuto', 1)
-            if 'sections' in post:
-                script_content['sections'].extend(post['sections'])
-
-                for section in post['sections']:
-                    if section['title']:
-                        doc.add_heading(section['title'], section['level'])
-                    if section['content']:
-                        for para in section['content']:
-                            doc.add_paragraph(para)
-
-            # Outro
-            outro_section = {
-                'level': 1,
-                'title': 'Conclusione',
-                'content': [self.outro_text]
-            }
-            script_content['sections'].append(outro_section)
-
-            doc.add_heading('🎬 Conclusione', 1)
-            doc.add_paragraph(self.outro_text)
-
-            # Salva il documento
-            filename = os.path.join(
-                self.output_dir,
-                f"script_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{post['title'][:30]}.docx"
-            )
-            doc.save(filename)
-
-            self.logger.info(f"Created script: {filename}")
-            return filename, script_content
 
         except Exception as e:
-            error_msg = f"Error creating script for {post['title']}: {str(e)}"
+            error_msg = f"Error processing post {post['title']}: {str(e)}"
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            self.log_message(message_callback, f"❌ {error_msg}")
+            raise
+
+    def process_recent_posts(self, message_callback: Optional[Callable] = None,
+                           progress_callback: Optional[Callable] = None) -> List[Dict]:
+        """Processa i post più recenti"""
+        try:
+            self.log_message(message_callback, "📥 Fetching recent posts...")
+            parser = BlogParser(self.content_dir)
+            posts = parser.fetch_posts(self.num_posts)
+
+            if not posts:
+                self.log_message(message_callback, "❌ No posts found.")
+                return []
+
+            processed_items = []
+            total_posts = len(posts)
+
+            for i, post in enumerate(posts, 1):
+                try:
+                    overall_progress = ((i - 1) * 100) // total_posts
+                    self.update_progress(progress_callback, overall_progress,
+                                      f"Processing post {i} of {total_posts}")
+
+                    result = self.process_post(post, message_callback, progress_callback)
+                    if result:
+                        processed_items.append(result)
+                        self.log_message(message_callback,
+                                      f"✅ Successfully processed: {post['title']}")
+
+                except Exception as e:
+                    self.logger.error(f"Error processing post {post['title']}: {str(e)}")
+                    self.log_message(message_callback,
+                                  f"⚠️ Error processing post {post['title']}: {str(e)}")
+                    continue
+
+            self.update_progress(progress_callback, 100, "Processing complete")
+            return processed_items
+
+        except Exception as e:
+            error_msg = f"Critical error: {str(e)}"
+            self.logger.error(error_msg)
+            self.log_message(message_callback, f"❌ {error_msg}")
+            raise
 
     def update_progress(self, progress_callback: Optional[Callable] = None,
                        progress: float = 0, status: str = ""):
@@ -208,94 +166,9 @@ class VideoGenerator:
             except Exception as e:
                 self.logger.error(f"Error logging message: {str(e)}")
 
-    def process_post(self, post: Dict, message_callback: Optional[Callable] = None,
-                    progress_callback: Optional[Callable] = None) -> Dict:
-        """Processa un singolo post"""
-        try:
-            # Inizio processo
-            self.update_progress(progress_callback, 0, f"Processing: {post['title']}")
-            self.log_message(message_callback, f"Starting processing of: {post['title']}")
-
-            # Crea lo script
-            self.log_message(message_callback, f"Creating script for: {post['title']}")
-            script_file, script_content = self.create_script(post)
-            self.update_progress(progress_callback, 30, f"Script created for: {post['title']}")
-
-            # Crea il video
-            self.log_message(message_callback, f"Creating video for: {post['title']}")
-            video_maker = VideoMaker(self.video_output_dir)
-            video_file = video_maker.create_video(script_content)
-            self.update_progress(progress_callback, 100, f"Video created for: {post['title']}")
-
-            return {
-                'title': post['title'],
-                'script_file': script_file,
-                'video_file': video_file,
-                'url': post['url']
-            }
-
-        except Exception as e:
-            error_msg = f"Error processing post {post['title']}: {str(e)}"
-            self.logger.error(error_msg)
-            self.log_message(message_callback, f"❌ {error_msg}")
-            raise
-
-    def process_recent_posts(self, message_callback: Optional[Callable] = None,
-                           progress_callback: Optional[Callable] = None) -> List[Dict]:
-        """Processa i post più recenti"""
-        try:
-            self.log_message(message_callback, "📥 Fetching recent posts...")
-
-            parser = BlogParser(self.content_dir)
-            posts = parser.fetch_posts(self.num_posts)
-
-            if not posts:
-                self.log_message(message_callback, "❌ No posts found.")
-                return []
-
-            processed_items = []
-            total_posts = len(posts)
-
-            for i, post in enumerate(posts, 1):
-                try:
-                    # Calcola e aggiorna il progresso generale
-                    overall_progress = ((i - 1) * 100) // total_posts
-                    self.update_progress(
-                        progress_callback,
-                        overall_progress,
-                        f"Processing post {i} of {total_posts}"
-                    )
-
-                    # Processa il post
-                    result = self.process_post(post, message_callback, progress_callback)
-                    if result:
-                        processed_items.append(result)
-                        self.log_message(
-                            message_callback,
-                            f"✅ Successfully processed: {post['title']}"
-                        )
-
-                except Exception as e:
-                    self.logger.error(f"Error processing post {post['title']}: {str(e)}")
-                    self.log_message(
-                        message_callback,
-                        f"⚠️ Error processing post {post['title']}: {str(e)}"
-                    )
-                    continue
-
-            # Completamento
-            self.update_progress(progress_callback, 100, "Processing complete")
-            return processed_items
-
-        except Exception as e:
-            error_msg = f"Critical error: {str(e)}"
-            self.logger.error(error_msg)
-            self.log_message(message_callback, f"❌ {error_msg}")
-            raise
-
 def main():
     try:
-        generator = VideoGenerator()
+        manager = VideoManager()
         print("🚀 Starting video generation...")
 
         def progress_callback(info: Dict):
@@ -303,7 +176,7 @@ def main():
             status = info.get('status', '')
             print(f"Progress: {progress}% - {status}")
 
-        items = generator.process_recent_posts(
+        items = manager.process_recent_posts(
             message_callback=print,
             progress_callback=progress_callback
         )

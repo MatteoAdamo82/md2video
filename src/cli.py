@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional
 from dotenv import load_dotenv
-from .video_generator import VideoGenerator
+from .video_generator import VideoManager
 
 class VideoGeneratorCLI(cmd.Cmd):
     intro = f"""\033[1m{'-'*50}
@@ -18,7 +18,7 @@ Digita 'help' o '?' per la lista dei comandi.
         super().__init__()
         self.stdout = stdout or sys.stdout
         load_dotenv()
-        self.generator = VideoGenerator()
+        self.manager = VideoManager()
 
     def do_script(self, arg: str) -> None:
         try:
@@ -28,7 +28,7 @@ Digita 'help' o '?' per la lista dei comandi.
                 print(f"Progresso: {progress}% - {status}", file=self.stdout)
 
             print("\nGenerazione script in corso...", file=self.stdout)
-            items = self.generator.generate_scripts(
+            items = self.manager.generate_scripts(
                 message_callback=lambda msg: print(msg, file=self.stdout),
                 progress_callback=progress_callback
             )
@@ -47,7 +47,7 @@ Digita 'help' o '?' per la lista dei comandi.
     def do_video(self, arg: str) -> None:
         try:
             print("\nRicerca script disponibili...", file=self.stdout)
-            scripts = self.generator.list_available_scripts()
+            scripts = self.manager.list_available_scripts()
 
             if not scripts:
                 print("❌ Nessuno script trovato nella directory.", file=self.stdout)
@@ -67,7 +67,7 @@ Digita 'help' o '?' per la lista dei comandi.
                         selected_script = scripts[idx]
                         print(f"\nGenerazione video per: {os.path.basename(selected_script)}")
 
-                        self.generator.generate_video_from_script(
+                        self.manager.generate_video_from_script(
                             str(selected_script),
                             message_callback=lambda msg: print(msg, file=self.stdout),
                             progress_callback=lambda info: print(
@@ -80,8 +80,6 @@ Digita 'help' o '?' per la lista dei comandi.
                         print("❌ Selezione non valida.", file=self.stdout)
                 except ValueError:
                     print("❌ Inserisci un numero valido.", file=self.stdout)
-                except NotImplementedError as e:
-                    print(f"\n⚠️ {str(e)}", file=self.stdout)
                 except Exception as e:
                     print(f"\n❌ Errore: {str(e)}", file=self.stdout)
 
@@ -96,7 +94,7 @@ Digita 'help' o '?' per la lista dei comandi.
                 print(f"Progresso: {progress}% - {status}", file=self.stdout)
 
             print("\nGenerazione script e video in corso...", file=self.stdout)
-            items = self.generator.process_recent_posts(
+            items = self.manager.process_recent_posts(
                 message_callback=lambda msg: print(msg, file=self.stdout),
                 progress_callback=progress_callback
             )
