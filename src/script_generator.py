@@ -15,20 +15,91 @@ class ScriptGenerator:
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     def clean_text(self, text: str) -> str:
-        """Rimuove emoji e caratteri speciali mantenendo la punteggiatura essenziale"""
+        """Rimuove emoji mantenendo apostrofi, punteggiatura e caratteri speciali essenziali"""
+        # Rimuove solo emoji mantenendo apostrofi e altri caratteri necessari
         text = emoji.replace_emoji(text, '')
-        text = re.sub(r'[^\w\s,.!?;:-]', '', text)
+        # Permette apostrofi (sia dritti che curvi) e caratteri essenziali
+        text = re.sub(r'[^\w\s,.!?;:\'\'-]', '', text)
         return ' '.join(text.split())
+
+    def parse_paragraph(self, text: str) -> list:
+        """Analizza un paragrafo e lo divide in componenti (testo e liste)"""
+        components = []
+        current_text = []
+        current_list = []
+        list_started = False
+
+        lines = text.split('\n')
+
+        for line in lines:
+            # Pattern per liste numerate (1. o 1) o lettere (a. o a))
+            numbered_list = re.match(r'^\s*(?:\d+|[a-z])[).]\s+(.+)$', line.strip())
+            # Pattern per liste puntate
+            bulleted_list = re.match(r'^\s*[-*•]\s+(.+)$', line.strip())
+
+            if numbered_list or bulleted_list:
+                # Se c'era del testo prima della lista, salvalo
+                if current_text and not list_started:
+                    components.append({
+                        "type": "text",
+                        "content": ' '.join(current_text)
+                    })
+                    current_text = []
+
+                list_started = True
+                list_item = numbered_list.group(1) if numbered_list else bulleted_list.group(1)
+                current_list.append(list_item)
+            else:
+                # Se era in corso una lista, salvala
+                if list_started:
+                    components.append({
+                        "type": "list",
+                        "items": current_list
+                    })
+                    current_list = []
+                    list_started = False
+
+                if line.strip():
+                    current_text.append(line.strip())
+
+        # Gestione degli ultimi elementi
+        if current_text and not list_started:
+            components.append({
+                "type": "text",
+                "content": ' '.join(current_text)
+            })
+        if current_list:
+            components.append({
+                "type": "list",
+                "items": current_list
+            })
+
+        return components
 
     def create_speech_segments(self, text: str) -> list:
         """Divide il testo in segmenti naturali con pause appropriate"""
         segments = []
-        sentences = re.split(r'([.!?])\s+', text)
 
-        for i in range(0, len(sentences)-1, 2):
-            text = sentences[i] + (sentences[i+1] if i+1 < len(sentences) else '')
-            pause = 0.5 if sentences[i+1] in '.!?' else 0.3
-            segments.append({"text": text, "pause": pause})
+        # Analizza il paragrafo in componenti
+        components = self.parse_paragraph(text)
+
+        for component in components:
+            if component["type"] == "text":
+                # Dividi il testo in frasi
+                sentences = re.split(r'([.!?])\s+', component["content"])
+                for i in range(0, len(sentences)-1, 2):
+                    text = sentences[i] + (sentences[i+1] if i+1 < len(sentences) else '')
+                    if text.strip():
+                        segments.append({
+                            "type": "speech",
+                            "text": self.clean_text(text),
+                            "pause": 0.5 if sentences[i+1] in '.!?' else 0.3
+                        })
+            elif component["type"] == "list":
+                segments.append({
+                    "type": "list",
+                    "items": [self.clean_text(item) for item in component["items"]]
+                })
 
         return segments
 
@@ -63,10 +134,16 @@ class ScriptGenerator:
 
             for para in section['content']:
                 segments = self.create_speech_segments(para)
+
                 for segment in segments:
-                    speech = ET.SubElement(sec, "speech",
-                                         pause=str(segment['pause']))
-                    speech.text = self.clean_text(segment['text'])
+                    if segment["type"] == "speech":
+                        speech = ET.SubElement(sec, "speech", pause=str(segment["pause"]))
+                        speech.text = segment["text"]
+                    elif segment["type"] == "list":
+                        list_elem = ET.SubElement(sec, "list")
+                        for item in segment["items"]:
+                            list_item = ET.SubElement(list_elem, "item", pause="0.3")
+                            list_item.text = item
 
         # Conclusione
         outro = ET.SubElement(content, "section", level="1", type="outro")
@@ -86,6 +163,49 @@ class ScriptGenerator:
 
         return str(filepath), xml_str
 
+
+class ScriptParser:
+    def __init__(self):
+        self.tree = None
+        self.root = None
+
+    def load_script(self, xml_path: str):
+        """Carica e valida lo script XML"""
+        self.tree = ET.parse(xml_path)
+        self.root = self.tree.getroot()
+
+        if self.root.tag != "script":
+            raise ValueError("Invalid script format")
+
+    def get_metadata(self) -> dict:
+        """Estrae i metadata dallo script"""
+        metadata = self.root.find("metadata")
+        return {
+            "title": metadata.find("title").text,
+            "url": metadata.find("url").text,
+            "date": metadata.find("date").text
+        }
+
+    def get_sections(self) -> list:
+        """Estrae le sezioni con il testo da sintetizzare"""
+        sections = []
+        for section in self.root.find("content").findall("section"):
+            sections.append({
+                "level": int(section.get("level")),
+                "type": section.get("type"),
+                "heading": section.find("heading").text if section.find("heading") is not None else "",
+                "speeches": [{
+                    "text": speech.text,
+                    "pause": float(speech.get("pause", 0.5))
+                } for speech in section.findall("speech")],
+                "lists": [{
+                    "items": [{
+                        "text": item.text,
+                        "pause": float(item.get("pause", 0.3))
+                    } for item in list_elem.findall("item")]
+                } for list_elem in section.findall("list")]
+            })
+        return sections
 
 class ScriptParser:
     def __init__(self):
