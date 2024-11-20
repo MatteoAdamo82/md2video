@@ -5,8 +5,8 @@ from gtts import gTTS
 from moviepy.editor import *
 import logging
 from dotenv import load_dotenv
+from math import sin, pi
 from .script_generator import ScriptParser
-import time
 
 class VideoMaker:
     def __init__(self, output_dir: str = 'video_output'):
@@ -14,12 +14,39 @@ class VideoMaker:
         self.output_dir = output_dir
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        # Slide settings
+        # Impostazioni base
         self.width = int(os.getenv('VIDEO_WIDTH', '1920'))
         self.height = int(os.getenv('VIDEO_HEIGHT', '1080'))
-        self.background_color = os.getenv('VIDEO_BGCOLOR', '#291d38')
+        self.default_bg = os.getenv('VIDEO_BGCOLOR', '#291d38')
         self.text_color = os.getenv('VIDEO_TEXT_COLOR', '#ffffff')
         self.accent_color = os.getenv('VIDEO_ACCENT_COLOR', '#f22bb3')
+
+        # Directory assets
+        self.assets_dir = Path(output_dir) / 'assets'
+        self.assets_dir.mkdir(parents=True, exist_ok=True)
+
+        # Configurazioni animazioni
+        self.animations = {
+            # Transizioni base
+            'fade': lambda clip: clip.fadein(0.5).fadeout(0.5),
+            'slide_left': lambda clip: clip.set_position(lambda t: ('center', 'center') if t > 0.5 else (self.width * (1-2*t), 'center')),
+            'slide_right': lambda clip: clip.set_position(lambda t: ('center', 'center') if t > 0.5 else (-self.width * (1-2*t), 'center')),
+            'slide_up': lambda clip: clip.set_position(lambda t: ('center', 'center') if t > 0.5 else ('center', self.height * (1-2*t))),
+            'slide_down': lambda clip: clip.set_position(lambda t: ('center', 'center') if t > 0.5 else ('center', -self.height * (1-2*t))),
+
+            # Zoom
+            'zoom_in': lambda clip: clip.resize(lambda t: 1 + 0.5 * t),
+            'zoom_out': lambda clip: clip.resize(lambda t: 1.5 - 0.5 * t),
+            'zoom_pulse': lambda clip: clip.resize(lambda t: 1 + 0.1 * sin(t * 2 * pi)),
+
+            # Rotazioni
+            'rotate_cw': lambda clip: clip.rotate(lambda t: 360 * t),
+            'rotate_ccw': lambda clip: clip.rotate(lambda t: -360 * t),
+
+            # Combinazioni
+            'zoom_fade': lambda clip: clip.fadein(0.5).fadeout(0.5).resize(lambda t: 1 + 0.1 * t),
+            'rotate_fade': lambda clip: clip.fadein(0.5).fadeout(0.5).rotate(lambda t: 360 * t)
+        }
 
         # Font settings
         self.font_path = os.getenv('VIDEO_FONT_PATH', '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
@@ -38,15 +65,20 @@ class VideoMaker:
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
-    def create_gradient_background(self) -> Image:
-        """Crea uno sfondo con gradiente"""
+    def create_gradient_background(self, bg_name: str = None) -> Image:
+        """Crea uno sfondo con gradiente o carica un'immagine custom"""
+        if bg_name and (self.assets_dir / bg_name).exists():
+            bg_image = Image.open(self.assets_dir / bg_name)
+            return bg_image.resize((self.width, self.height))
+
+        # Sfondo default con gradiente
         image = Image.new('RGB', (self.width, self.height))
         draw = ImageDraw.Draw(image)
 
         def hex_to_rgb(hex_color):
             return tuple(int(hex_color[i:i+2], 16) for i in (1, 3, 5))
 
-        bg_color = hex_to_rgb(self.background_color)
+        bg_color = hex_to_rgb(self.default_bg)
 
         for y in range(self.height):
             factor = 1 - y/self.height * 0.2
@@ -77,9 +109,9 @@ class VideoMaker:
 
         return lines
 
-    def create_slide(self, text: str, filename: str, heading_level: int = 0) -> str:
+    def create_slide(self, text: str, filename: str, heading_level: int = 0, bg_name: str = None) -> str:
         try:
-            image = self.create_gradient_background()
+            image = self.create_gradient_background(bg_name)
             try:
                 font_size = self.heading_sizes.get(heading_level, self.heading_sizes[0])
                 font = ImageFont.truetype(self.font_path, font_size)
@@ -123,18 +155,35 @@ class VideoMaker:
     def text_to_speech(self, text: str, filename: str, pause: float = 0.5, lang='it') -> str:
         try:
             tts = gTTS(text=text, lang=lang, slow=False)
-            temp_speech = filename.replace('.mp3', '_temp.mp3')
-            tts.save(temp_speech)
+            tts.save(filename)
 
-            # Aggiungi pausa alla fine dell'audio
+            # Se è richiesta una pausa, aggiungiamola in modo più sicuro
             if pause > 0:
-                speech_audio = AudioFileClip(temp_speech)
-                silence = AudioClip(lambda t: 0, duration=pause)  # Crea silenzio di durata specificata
-                final_audio = concatenate_audioclips([speech_audio, silence])
-                final_audio.write_audiofile(filename)
+                # Carica l'audio originale
+                audio = AudioFileClip(filename)
 
-                # Pulisci il file temporaneo
-                os.remove(temp_speech)
+                # Crea un array di zeri per il silenzio
+                sample_rate = 44100  # standard sample rate
+                silence_duration = int(pause * sample_rate)
+                silence = AudioClip(lambda t: 0, duration=pause)
+
+                # Concatena con un crossfade minimo per evitare glitch
+                final_audio = concatenate_audioclips([audio, silence],
+                                                   method="compose",
+                                                   crossfadein=0.1,
+                                                   crossfadeout=0.1)
+
+                # Salva l'audio finale
+                final_audio.write_audiofile(filename,
+                                          fps=sample_rate,
+                                          nbytes=2,
+                                          codec='libmp3lame',
+                                          bitrate='192k',
+                                          ffmpeg_params=["-ac", "2"])  # forza output stereo
+
+                # Chiudi i clips per liberare memoria
+                audio.close()
+                final_audio.close()
 
             return filename
         except Exception as e:
@@ -146,36 +195,31 @@ class VideoMaker:
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            image_file = str(temp_dir / f'slide_{segment_number}.png')
-
-            # Crea la slide con l'heading o con il primo speech se non c'è heading
-            if section['heading']:
-                display_text = section['heading']
-            elif section['speeches']:
-                display_text = section['speeches'][0]['text']
-            else:
-                display_text = ""
-
-            self.create_slide(display_text, image_file, section['level'])
-
             clips = []
+
+            # Per ogni speech, crea una nuova slide
             for i, speech in enumerate(section['speeches']):
+                image_file = str(temp_dir / f'slide_{segment_number}_{i}.png')
                 audio_file = str(temp_dir / f'audio_{segment_number}_{i}.mp3')
+
+                # Usa background custom se specificato nella sezione
+                bg_name = section.get('background')
+
+                # Crea slide per ogni speech
+                self.create_slide(speech['text'], image_file, section['level'], bg_name)
                 self.text_to_speech(speech['text'], audio_file, speech['pause'])
 
                 audio = AudioFileClip(audio_file)
-                video = (ImageClip(image_file)
-                        .set_duration(audio.duration)
-                        .fadein(0.5)
-                        .fadeout(0.5))
+                video = ImageClip(image_file).set_duration(audio.duration)
+
+                # Applica animazione se specificata
+                animation = section.get('animation', 'fade')
+                if animation in self.animations:
+                    video = self.animations[animation](video)
 
                 clips.append(video.set_audio(audio))
 
             return concatenate_videoclips(clips, method="compose") if clips else None
-
-        except Exception as e:
-            self.logger.error(f"Error creating video segment: {str(e)}")
-            raise
 
         except Exception as e:
             self.logger.error(f"Error creating video segment: {str(e)}")
@@ -193,7 +237,12 @@ class VideoMaker:
             clips = []
 
             for i, section in enumerate(sections):
-                clips.append(self.create_video_segment(section, i))
+                segment_clip = self.create_video_segment(section, i)
+                if segment_clip is not None:
+                    clips.append(segment_clip)
+
+            if not clips:
+                raise ValueError("No valid clips generated")
 
             final_video = concatenate_videoclips(clips, method="compose")
 

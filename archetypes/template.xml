@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<script version="1.0">
+    <metadata>
+        <title>Titolo Video</title>
+        <url>https://example.com/post</url>
+        <date>2024-11-20</date>
+    </metadata>
+    <content>
+        <section level="1" type="intro" background="intro_bg.png" animation="zoom">
+            <heading>Introduzione</heading>
+            <speech pause="0.5">Testo introduttivo</speech>
+        </section>
+        <section level="2" type="content" background="content_bg.png" animation="slide_left">
+            <heading>Prima sezione</heading>
+            <speech pause="0.3">Primo paragrafo</speech>
+            <speech pause="0.5">Secondo paragrafo</speech>
+        </section>
+    </content>
+</script>
