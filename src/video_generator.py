@@ -32,6 +32,96 @@ class VideoGenerator:
         for directory in [self.output_dir, self.video_output_dir]:
             Path(directory).mkdir(parents=True, exist_ok=True)
 
+    def generate_scripts(self, message_callback=None, progress_callback=None):
+            """Genera solo gli script dai post"""
+            try:
+                self.log_message(message_callback, "📥 Fetching recent posts...")
+                parser = BlogParser(self.content_dir)
+                posts = parser.fetch_posts(self.num_posts)
+
+                if not posts:
+                    self.log_message(message_callback, "❌ No posts found.")
+                    return []
+
+                results = []
+                total_posts = len(posts)
+
+                for i, post in enumerate(posts, 1):
+                    try:
+                        self.update_progress(progress_callback, (i * 100) // total_posts,
+                                           f"Creating script {i} of {total_posts}")
+                        script_file, _ = self.create_script(post)
+                        results.append({
+                            'title': post['title'],
+                            'script_file': script_file,
+                            'url': post['url']
+                        })
+                        self.log_message(message_callback, f"✅ Created script for: {post['title']}")
+                    except Exception as e:
+                        self.log_message(message_callback, f"❌ Error: {str(e)}")
+
+                return results
+            except Exception as e:
+                raise Exception(f"Error generating scripts: {str(e)}")
+
+    def list_available_scripts(self):
+        """Lista gli script disponibili"""
+        try:
+            return list(Path(self.output_dir).glob('*.docx'))
+        except Exception as e:
+            raise Exception(f"Error listing scripts: {str(e)}")
+
+    def generate_video_from_script(self, script_path: str, message_callback=None,
+                                 progress_callback=None):
+        """Genera un video da uno script esistente"""
+        try:
+            doc = Document(script_path)
+            # Qui andrebbe la logica di conversione da docx a script_content
+            # Per ora restituiamo un errore
+            raise NotImplementedError("Video generation from script not yet implemented")
+        except Exception as e:
+            raise Exception(f"Error generating video: {str(e)}")
+
+    def generate_video_from_script(self, script_path: str, message_callback=None,
+                                     progress_callback=None):
+            """Genera un video da uno script esistente"""
+            try:
+                self.log_message(message_callback, "📄 Lettura script...")
+                doc = Document(script_path)
+
+                script_content = {
+                    'title': doc.paragraphs[0].text.replace('Script Video: ', ''),
+                    'sections': []
+                }
+
+                # Estrai le sezioni
+                current_section = None
+                for para in doc.paragraphs[3:]:  # Salta intestazione e metadati
+                    if para.style.name.startswith('Heading'):
+                        if current_section:
+                            script_content['sections'].append(current_section)
+                        current_section = {
+                            'level': int(para.style.name[-1]),
+                            'title': para.text,
+                            'content': []
+                        }
+                    elif current_section and para.text:
+                        current_section['content'].append(para.text)
+
+                if current_section:
+                    script_content['sections'].append(current_section)
+
+                self.update_progress(progress_callback, 30, "Script analizzato")
+
+                # Genera il video
+                video_maker = VideoMaker(self.video_output_dir)
+                video_file = video_maker.create_video(script_content)
+
+                self.update_progress(progress_callback, 100, "Video completato")
+                return video_file
+
+            except Exception as e:
+                raise Exception(f"Error generating video: {str(e)}")
     def create_script(self, post: Dict) -> tuple[str, Dict]:
         """Crea uno script formattato dal post"""
         try:
