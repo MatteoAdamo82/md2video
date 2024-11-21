@@ -12,6 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-RUN mkdir -p content/posts video_scripts video_output
+
+ENV PYTHONPATH=/app
 
 CMD ["python", "-m", "src.cli"]

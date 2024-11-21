@@ -4,8 +4,8 @@ import sys
 import os
 from datetime import datetime
 from typing import Optional
-from dotenv import load_dotenv
-from .video_generator import VideoManager
+from pathlib import Path
+from .video_generator import VideoGenerator
 
 class VideoGeneratorCLI(cmd.Cmd):
     intro = f"""\033[1m{'-'*50}
@@ -17,21 +17,20 @@ Digita 'help' o '?' per la lista dei comandi.
     def __init__(self, stdout=None):
         super().__init__()
         self.stdout = stdout or sys.stdout
-        load_dotenv()
-        self.manager = VideoManager()
+        self.generator = VideoGenerator()
+        self.generator.set_callbacks(
+            message_callback=lambda msg: print(msg, file=self.stdout),
+            progress_callback=lambda info: print(
+                f"Progresso: {info['value']}% - {info['status']}",
+                file=self.stdout
+            )
+        )
 
     def do_script(self, arg: str) -> None:
+        """Genera script dai post più recenti"""
         try:
-            def progress_callback(info):
-                progress = info.get('value', 0)
-                status = info.get('status', '')
-                print(f"Progresso: {progress}% - {status}", file=self.stdout)
-
             print("\nGenerazione script in corso...", file=self.stdout)
-            items = self.manager.generate_scripts(
-                message_callback=lambda msg: print(msg, file=self.stdout),
-                progress_callback=progress_callback
-            )
+            items = self.generator.generate_scripts()
 
             if items:
                 print("\n✅ Script generati:", file=self.stdout)
@@ -45,9 +44,9 @@ Digita 'help' o '?' per la lista dei comandi.
             print(f"\n❌ Errore: {str(e)}", file=self.stdout)
 
     def do_video(self, arg: str) -> None:
+        """Genera video dagli script esistenti"""
         try:
-            print("\nRicerca script disponibili...", file=self.stdout)
-            scripts = self.manager.list_available_scripts()
+            scripts = self._list_available_scripts()
 
             if not scripts:
                 print("❌ Nessuno script trovato nella directory.", file=self.stdout)
@@ -55,7 +54,7 @@ Digita 'help' o '?' per la lista dei comandi.
 
             print("\nScript disponibili:", file=self.stdout)
             for i, script in enumerate(scripts, 1):
-                print(f"{i}. {os.path.basename(script)}", file=self.stdout)
+                print(f"{i}. {script.name}", file=self.stdout)
 
             while True:
                 choice = input("\nSeleziona il numero dello script (0 per annullare): ")
@@ -65,16 +64,10 @@ Digita 'help' o '?' per la lista dei comandi.
                     idx = int(choice) - 1
                     if 0 <= idx < len(scripts):
                         selected_script = scripts[idx]
-                        print(f"\nGenerazione video per: {os.path.basename(selected_script)}")
+                        print(f"\nGenerazione video per: {selected_script.name}")
 
-                        self.manager.generate_video_from_script(
-                            str(selected_script),
-                            message_callback=lambda msg: print(msg, file=self.stdout),
-                            progress_callback=lambda info: print(
-                                f"Progresso: {info['value']}% - {info['status']}",
-                                file=self.stdout
-                            )
-                        )
+                        video_file = self.generator.generate_video(str(selected_script))
+                        print(f"\n✅ Video generato: {video_file}", file=self.stdout)
                         break
                     else:
                         print("❌ Selezione non valida.", file=self.stdout)
@@ -87,17 +80,10 @@ Digita 'help' o '?' per la lista dei comandi.
             print(f"\n❌ Errore: {str(e)}", file=self.stdout)
 
     def do_genera(self, arg: str) -> None:
+        """Genera sia script che video dai post"""
         try:
-            def progress_callback(info):
-                progress = info.get('value', 0)
-                status = info.get('status', '')
-                print(f"Progresso: {progress}% - {status}", file=self.stdout)
-
             print("\nGenerazione script e video in corso...", file=self.stdout)
-            items = self.manager.process_recent_posts(
-                message_callback=lambda msg: print(msg, file=self.stdout),
-                progress_callback=progress_callback
-            )
+            items = self.generator.process_recent_posts()
 
             if items:
                 print("\n✅ File generati:", file=self.stdout)
@@ -112,6 +98,7 @@ Digita 'help' o '?' per la lista dei comandi.
             print(f"\n❌ Errore: {str(e)}", file=self.stdout)
 
     def do_help(self, arg: str) -> None:
+        """Mostra l'help dei comandi"""
         if arg:
             super().do_help(arg)
         else:
@@ -124,25 +111,50 @@ Digita 'help' o '?' per la lista dei comandi.
             print(file=self.stdout)
 
     def do_quit(self, arg: str) -> bool:
+        """Esce dal programma"""
         print("\nArrivederci!\n", file=self.stdout)
         return True
 
     def default(self, line: str) -> None:
+        """Gestisce comandi non riconosciuti"""
         print(f"\n❌ Comando non riconosciuto: {line}", file=self.stdout)
         print("Usa 'help' per vedere i comandi disponibili.", file=self.stdout)
 
     def emptyline(self) -> None:
+        """Non fa nulla se viene premuto solo invio"""
         pass
 
+    def _list_available_scripts(self) -> list[Path]:
+        """Lista gli script XML disponibili"""
+        from pathlib import Path
+        from .config import Config
+
+        config = Config()
+        script_dir = Path(config.SCRIPT_DIR)
+        return sorted(script_dir.glob('*.xml'))
+
+    def cleanup(self):
+        """Pulisce le risorse prima di uscire"""
+        try:
+            self.generator.cleanup()
+        except Exception as e:
+            print(f"\n⚠️ Errore durante la pulizia: {str(e)}", file=self.stdout)
+
 def main():
+    """Entry point principale"""
+    cli = None
     try:
-        VideoGeneratorCLI().cmdloop()
+        cli = VideoGeneratorCLI()
+        cli.cmdloop()
     except KeyboardInterrupt:
         print("\nArrivederci!\n")
         sys.exit(0)
     except Exception as e:
         print(f"\n❌ Errore imprevisto: {str(e)}")
         sys.exit(1)
+    finally:
+        if cli:
+            cli.cleanup()
 
 if __name__ == '__main__':
     main()

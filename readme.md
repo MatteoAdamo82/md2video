@@ -30,6 +30,9 @@ docker-compose run --rm md2video video
 
 # Genera sia script che video in un unico comando
 docker-compose run --rm md2video genera
+
+## Rimuovi orphan containers
+docker-compose down --remove-orphans
 ```
 
 ## Struttura delle Directory
