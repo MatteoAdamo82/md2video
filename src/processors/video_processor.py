@@ -62,6 +62,38 @@ class VideoProcessor(BaseProcessor):
             self.logger.error(f"Error creating video: {str(e)}")
             raise
 
+    def _render_final_video(self, clips: List[VideoFileClip], title: str) -> str:
+        """Renderizza il video finale"""
+        output_file = os.path.join(
+            self.config.OUTPUT_DIR,
+            f"video_{title[:30].replace(' ', '_')}.mp4"
+        )
+
+        self.logger.info(f"Creating video for: {title}")
+
+        try:
+            final_video = concatenate_videoclips(clips, method="compose")
+            final_video.write_videofile(
+                output_file,
+                fps=self.config.VIDEO_FPS,
+                codec='libx264',
+                audio_codec='aac',
+                bitrate="4000k"
+            )
+
+            self.logger.info(f"Video saved to: {output_file}")
+            return output_file
+
+        except Exception as e:
+            self.logger.error(f"Error creating video: {str(e)}")
+            raise
+        finally:
+            temp_dir = Path(self.config.TEMP_DIR)
+            if temp_dir.exists():
+                for file in temp_dir.glob('*'):
+                    file.unlink()
+                temp_dir.rmdir()
+
     def _parse_script(self, script_path: str) -> Dict:
         """Parser dello script XML"""
         tree = ET.parse(script_path)
@@ -94,7 +126,11 @@ class VideoProcessor(BaseProcessor):
 
     def _create_segment(self, section: Dict, segment_number: int) -> VideoFileClip:
         """Crea un segmento video per una sezione"""
+        # Assicurati che la directory temp esista
         temp_path = Path(self.config.TEMP_DIR)
+        temp_path.mkdir(parents=True, exist_ok=True)
+        self.logger.info(f"Using temp directory: {temp_path}")
+
         clips = []
 
         total_speeches = len(section['speeches'])
@@ -112,99 +148,37 @@ class VideoProcessor(BaseProcessor):
                 self._create_slide(speech['text'], image_path, section['level'])
                 self._create_audio(speech['text'], audio_path, speech['pause'])
 
-                # Prima carica l'audio
-                audio_clip = AudioFileClip(str(audio_path))
+                self.logger.info(f"Created files: \nImage: {image_path} (exists: {image_path.exists()})\nAudio: {audio_path} (exists: {audio_path.exists()})")
 
-                # Poi crea il video con la stessa durata dell'audio
-                video_clip = ImageClip(str(image_path)).set_duration(audio_clip.duration)
+                # Carica l'audio
+                audio = AudioFileClip(str(audio_path))
+                # Crea il video
+                video = ImageClip(str(image_path)).set_duration(audio.duration)
 
-                # Combina esplicitamente audio e video
-                final_clip = video_clip.set_audio(audio_clip)
+                # Applica effetti se specificati
+                effect_name = section.get('effect', 'fade')
+                if effect_name in self.effects:
+                    video = self.effects[effect_name](video)
 
-                self.logger.info(f"Clip {i} - Audio duration: {audio_clip.duration}, Video duration: {video_clip.duration}")
-                clips.append(final_clip)
+                # Solo alla fine aggiungi l'audio
+                video = video.set_audio(audio)
+
+                self.logger.info(f"Created segment {i} with audio duration: {audio.duration}")
+                clips.append(video)
 
             except Exception as e:
                 self.logger.error(f"Error processing speech {i}: {str(e)}")
                 continue
 
-        if not clips:
-            return None
-
-        try:
-            # Concatena mantenendo l'audio
-            final_clip = concatenate_videoclips(clips, method="compose")
-            self.logger.info(f"Final segment duration: {final_clip.duration}, Has audio: {final_clip.audio is not None}")
-            return final_clip
-        except Exception as e:
-            self.logger.error(f"Error concatenating clips: {str(e)}")
-            return None
-
-    def _render_final_video(self, clips: List[VideoFileClip], title: str) -> str:
-        """Renderizza il video finale"""
-        output_file = f"video_{title[:30].replace(' ', '_')}.mp4"
-        output_path = self.config.OUTPUT_DIR / output_file
-
-        self.callback.log_message(f"\nRendering final video to: {output_path}")
-
-        try:
-            # Filtra i clip nulli
-            valid_clips = [clip for clip in clips if clip is not None and clip.audio is not None]
-
-            if not valid_clips:
-                raise ValueError("No valid clips with audio to render")
-
-            self.callback.log_message(f"Concatenating {len(valid_clips)} segments...")
-
-            # Concatenazione con verifica audio
-            final_video = concatenate_videoclips(valid_clips, method="compose")
-
-            if final_video.audio is None:
-                self.logger.error("Final video has no audio after concatenation!")
-
-            self.callback.log_message("Writing final video file...")
-            self.logger.info(f"Final duration: {final_video.duration}, Has audio: {final_video.audio is not None}")
-
-            # Usa ffmpeg_params per forzare l'inclusione dell'audio
-            final_video.write_videofile(
-                str(output_path),
-                fps=self.config.VIDEO_FPS,
-                codec=self.config.VIDEO_CODEC,
-                audio_codec=self.config.AUDIO_CODEC,
-                bitrate=self.config.VIDEO_BITRATE,
-                audio_bitrate=self.config.AUDIO_BITRATE,
-                verbose=True,
-                ffmpeg_params=["-c:a", "aac", "-strict", "-2"],
-                temp_audiofile=str(Path(self.config.TEMP_DIR) / "temp_audio.m4a")
-            )
-
-            if output_path.exists():
-                size_mb = output_path.stat().st_size / (1024 * 1024)
-                self.callback.log_message(f"✅ Video saved successfully!")
-                self.callback.log_message(f"📍 Location: {output_path}")
-                self.callback.log_message(f"📊 Size: {size_mb:.1f}MB")
-                self.callback.log_message(f"⏱️ Duration: {final_video.duration:.1f}s")
-            else:
-                raise FileNotFoundError(f"Video file was not created")
-
-            return str(output_path)
-
-        except Exception as e:
-            self.logger.error(f"Error saving video: {str(e)}")
-            raise
-        finally:
-            # Chiusura pulita di tutti i clips
-            for clip in clips:
-                if clip is not None:
-                    try:
-                        clip.close()
-                    except:
-                        pass
-            if 'final_video' in locals():
-                try:
-                    final_video.close()
-                except:
-                    pass
+        if clips:
+            try:
+                final = concatenate_videoclips(clips, method="compose")
+                self.logger.info(f"Created final segment with {len(clips)} clips")
+                return final
+            except Exception as e:
+                self.logger.error(f"Error concatenating clips: {str(e)}")
+                return clips[0] if clips else None
+        return None
 
     def _create_slide(self, text: str, output_path: Path, heading_level: int):
         """Crea una slide con testo"""
