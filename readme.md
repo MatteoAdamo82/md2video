@@ -1,136 +1,256 @@
 # MD2Video
 
-Questo tool converte post markdown in video narrati automaticamente.
+MD2Video is a Python application that automatically converts Markdown blog posts into narrated videos. It processes Markdown content, generates XML scripts, and creates videos with text overlays, background music, and automated speech synthesis.
 
-## Installazione
+## Features
 
+- Converts Markdown posts to narrated videos automatically
+- Generates intermediate XML script files that can be manually edited
+- Supports custom backgrounds and animations for video sections
+- Text-to-speech synthesis in multiple languages (default: Italian)
+- Smooth transitions and effects between video sections
+- CLI interface for easy operation
+- Configurable video and audio settings
+- Docker support for easy deployment
+
+## Installation
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+
+### Basic Installation
+
+1. Clone the repository:
 ```bash
-# Clona il repository
-git clone https://github.com/yourusername/md2video.git
+git clone https://github.com/MatteoAdamo82/md2video.git
 cd md2video
+```
 
-# Crea e avvia il container Docker
+2. Create a `.env` file from the template:
+```bash
+cp .env.example .env
+```
+
+3. Build and start the Docker container:
+```bash
 docker-compose build
 docker-compose up -d
 ```
 
-## Uso
+### Manual Installation (Without Docker)
 
-Il tool può essere eseguito in modalità CLI con i seguenti comandi:
-
+1. Install system dependencies:
 ```bash
-# Avvia app con CLI
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y ffmpeg fonts-dejavu python3-tk
+
+# macOS
+brew install ffmpeg
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+.\venv\Scripts\activate   # Windows
+```
+
+3. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+pip install -e ".[test]"  # If you want to run tests
+```
+
+## Configuration
+
+The application uses environment variables for configuration. Key settings in `.env`:
+
+```ini
+# Directory paths
+CONTENT_DIR=./content        # Location of Markdown posts
+SCRIPT_DIR=./video_scripts   # Where XML scripts are saved
+OUTPUT_DIR=./video_output    # Where videos are saved
+
+# Video settings
+VIDEO_WIDTH=1920             # Video width in pixels
+VIDEO_HEIGHT=1080            # Video height in pixels
+VIDEO_FPS=24                 # Frames per second
+VIDEO_BITRATE=4000k          # Video bitrate
+
+# Audio settings
+AUDIO_FPS=44100              # Audio sample rate
+AUDIO_BITRATE=192k           # Audio bitrate
+SPEECH_LANG=it               # Text-to-speech language
+```
+
+## Usage
+
+### CLI Commands
+
+The application provides several CLI commands:
+
+1. Launch interactive CLI:
+```bash
 docker-compose run --rm md2video
+```
 
-# Genera solo gli script XML
+2. Generate XML scripts from Markdown posts:
+```bash
 docker-compose run --rm md2video script
+```
 
-# Genera video da uno script esistente
+3. Generate video from an existing XML script:
+```bash
 docker-compose run --rm md2video video
+```
 
-# Genera sia script che video in un unico comando
+4. Generate both scripts and videos in one command:
+```bash
 docker-compose run --rm md2video genera
+```
 
-## Rimuovi orphan containers
+5. Clean up Docker environment:
+```bash
 docker-compose down --remove-orphans
 ```
 
-## Struttura delle Directory
+### Directory Structure
 
 ```
 md2video/
-├── content/posts/          # Directory contenente i post markdown
-├── video_output/           # Directory output per i video
-│   ├── assets/             # Directory per gli sfondi personalizzati
-│   ├── temp/               # Directory temporanea (auto-generata)
-│   └── videos/             # Video generati
-└── scripts/                # Script XML generati
+├── content/              # Input Markdown posts
+├── video_output/        # Generated videos
+│   ├── assets/         # Custom backgrounds
+│   ├── temp/          # Temporary files
+│   └── videos/        # Final videos
+├── video_scripts/      # Generated XML scripts
+└── tests/             # Test files
 ```
 
-## Personalizzazione degli Script XML
+## Development
 
-Gli script XML generati possono essere personalizzati per utilizzare sfondi e animazioni diverse per ogni sezione.
+### Running Tests
 
-### Esempio Base
+1. Run all tests with coverage:
+```bash
+docker-compose run --rm test
+```
+
+2. Run specific test files:
+```bash
+docker-compose run --rm md2video pytest tests/test_blog_processor.py
+```
+
+3. Run tests with specific markers:
+```bash
+docker-compose run --rm md2video pytest -m "not slow"
+```
+
+### Test Coverage
+
+The test suite includes unit tests for all major components:
+- `test_blog_processor.py`: Tests for Markdown processing
+- `test_script_processor.py`: Tests for XML script generation
+- `test_video_processor.py`: Tests for video generation
+- `test_base_processor.py`: Tests for base processor functionality
+- `test_video_generator.py`: Tests for the main generator class
+
+### XML Script Format
+
+The application generates and processes XML scripts in the following format:
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <script version="1.0">
-  <metadata>
-    <title>Titolo del Video</title>
-    <url>https://example.com/post</url>
-    <date>2024-11-20</date>
-  </metadata>
-  <content>
-    <section level="1" type="intro">
-      <heading>Introduzione</heading>
-      <speech pause="0.5">Testo dell'introduzione</speech>
-    </section>
-  </content>
+    <metadata>
+        <title>Video Title</title>
+        <url>https://example.com/post</url>
+        <date>2024-11-20</date>
+    </metadata>
+    <content>
+        <section level="1" type="intro" background="intro_bg.png" animation="zoom">
+            <heading>Introduction</heading>
+            <speech pause="0.5">Introduction text</speech>
+        </section>
+    </content>
 </script>
 ```
 
-### Esempio con Sfondo Personalizzato
-```xml
-<section level="1" type="intro" background="intro_bg.png">
-  <heading>Introduzione</heading>
-  <speech pause="0.5">Testo con sfondo personalizzato</speech>
-</section>
+## Available Effects
+
+### Transitions
+- `fade`: Fade in and out
+- `slide_left`: Slide from right to left
+- `slide_right`: Slide from left to right
+- `slide_up`: Slide from bottom to top
+- `slide_down`: Slide from top to bottom
+
+### Visual Effects
+- `zoom_in`: Progressive zoom in
+- `zoom_out`: Progressive zoom out
+- `zoom_pulse`: Subtle pulse effect
+- `rotate_cw`: Clockwise rotation
+- `rotate_ccw`: Counter-clockwise rotation
+
+### Combined Effects
+- `zoom_fade`: Fade with zoom
+- `rotate_fade`: Fade with rotation
+
+## Custom Backgrounds
+
+1. Supported formats: PNG, JPG
+2. Recommended dimensions: 1920x1080 pixels
+3. Place background images in: `video_output/assets/`
+4. Reference in XML using: `background="image_name.png"`
+
+## Troubleshooting
+
+### Common Issues
+
+1. **FFmpeg Missing**
+```bash
+# Install FFmpeg
+sudo apt-get install ffmpeg  # Ubuntu/Debian
+brew install ffmpeg         # macOS
 ```
 
-### Esempio con Animazione
-```xml
-<section level="2" type="content" animation="slide_left">
-  <heading>Sezione con Animazione</heading>
-  <speech pause="0.3">Questo testo apparirà con un'animazione</speech>
-</section>
+2. **Permission Issues**
+```bash
+# Fix directory permissions
+sudo chown -R $USER:$USER content video_output video_scripts
 ```
 
-### Esempio Completo con Sfondo e Animazione
-```xml
-<section level="1" type="intro" background="custom_bg.png" animation="zoom">
-  <heading>Sezione Personalizzata</heading>
-  <speech pause="0.5">Prima frase con pausa lunga</speech>
-  <speech pause="0.3">Seconda frase con pausa breve</speech>
-</section>
+3. **Memory Issues**
+```bash
+# Adjust Docker memory limit in docker-compose.yml
+services:
+  md2video:
+    mem_limit: 2g
 ```
 
-## Sfondi Personalizzati
+### Logging
 
-Gli sfondi personalizzati devono essere posizionati nella directory `video_output/assets/` e possono essere referenziati negli script XML usando l'attributo `background`.
+- Logs are written to console and `video_output/md2video.log`
+- Set `LOG_LEVEL` in `.env` to adjust verbosity (DEBUG, INFO, WARNING, ERROR)
 
-## Transizioni Disponibili
+## Contributing
 
-### Base
-- `fade`: Dissolvenza in entrata e uscita
-- `slide_left`: Scorrimento da destra a sinistra
-- `slide_right`: Scorrimento da sinistra a destra
-- `slide_up`: Scorrimento dal basso all'alto
-- `slide_down`: Scorrimento dall'alto al basso
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Run tests to ensure they pass
+4. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+5. Push to the branch (`git push origin feature/AmazingFeature`)
+6. Open a Pull Request
 
-### Zoom
-- `zoom_in`: Ingrandimento progressivo
-- `zoom_out`: Rimpicciolimento progressivo
-- `zoom_pulse`: Effetto pulsante leggero
+## License
 
-### Rotazioni
-- `rotate_cw`: Rotazione oraria
-- `rotate_ccw`: Rotazione antioraria
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-### Combinazioni
-- `zoom_fade`: Dissolvenza con zoom
-- `rotate_fade`: Dissolvenza con rotazione
+## Acknowledgments
 
-## Dimensioni Raccomandate
-- Larghezza: 1920px
-- Altezza: 1080px
-- Formato: PNG o JPG
-
-## Note
-- Gli sfondi personalizzati verranno automaticamente ridimensionati alla risoluzione del video
-- Se uno sfondo specificato non viene trovato, verrà utilizzato lo sfondo gradiente di default
-- Le pause tra i speech possono essere personalizzate con l'attributo `pause` (in secondi)
-
-## Requisiti degli Sfondi
-- Usare immagini con contrasto sufficiente per il testo in overlay
-- Evitare pattern troppo complessi che potrebbero rendere il testo illeggibile
-- Preferire immagini con aree libere al centro per il posizionamento del testo
+- Uses `gTTS` for text-to-speech synthesis
+- Uses `moviepy` for video processing
+- Uses `python-frontmatter` for Markdown processing
