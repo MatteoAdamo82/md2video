@@ -121,13 +121,13 @@ docker-compose down --remove-orphans
 
 ```
 md2video/
-├── content/              # Input Markdown posts
+├── content/             # Input Markdown posts
 ├── video_output/        # Generated videos
-│   ├── assets/         # Custom backgrounds
-│   ├── temp/          # Temporary files
-│   └── videos/        # Final videos
-├── video_scripts/      # Generated XML scripts
-└── tests/             # Test files
+│   ├── assets/          # Custom backgrounds
+│   ├── temp/            # Temporary files
+│   └── videos/          # Final videos
+├── video_scripts/       # Generated XML scripts
+└── tests/               # Test files
 ```
 
 ## Development
