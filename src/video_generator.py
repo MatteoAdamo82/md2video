@@ -68,9 +68,16 @@ class VideoGenerator:
             raise Exception(f"Error processing posts: {str(e)}")
 
     def cleanup(self):
-        """Pulisce le risorse temporanee"""
-        for processor in [self.blog_processor, self.script_processor, self.video_processor]:
-            processor.cleanup()
+            """Pulisce le risorse di tutti i processor, gestendo eventuali errori"""
+            errors = []
+            for processor in [self.blog_processor, self.script_processor, self.video_processor]:
+                try:
+                    processor.cleanup()
+                except Exception as e:
+                    errors.append(str(e))
+
+            if errors:
+                self.logger.warning(f"Errors during cleanup: {', '.join(errors)}")
 
 # Example usage in CLI
 if __name__ == "__main__":
