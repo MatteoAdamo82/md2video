@@ -1,3 +1,4 @@
+# Existing requirements
 feedparser==6.0.10
 beautifulsoup4==4.12.2
 python-docx==1.0.0
@@ -8,3 +9,8 @@ Pillow==9.5.0
 python-frontmatter==1.0.0
 python-dotenv==1.0.0
 emoji
+
+# Test requirements
+pytest==7.4.4
+pytest-cov==4.1.0
+pytest-mock==3.12.0

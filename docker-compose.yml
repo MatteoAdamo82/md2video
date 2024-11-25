@@ -8,3 +8,9 @@ services:
       - ./.env:/app/.env
     env_file:
       - .env
+
+  test:
+    build: .
+    command: pytest --cov=src --cov-report=term-missing
+    volumes:
+      - .:/app
