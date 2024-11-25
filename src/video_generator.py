@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Optional, Callable
 from .processors import BlogProcessor, ScriptProcessor, VideoProcessor
 from .base_processor import ProcessorCallback
@@ -9,6 +10,7 @@ class VideoGenerator:
         self.blog_processor = BlogProcessor()
         self.script_processor = ScriptProcessor()
         self.video_processor = VideoProcessor()
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def set_callbacks(self, message_callback: Optional[Callable] = None,
                      progress_callback: Optional[Callable] = None):
