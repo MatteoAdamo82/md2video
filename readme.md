@@ -122,7 +122,7 @@ Once inside the CLI interface:
 
 1. `script` - Generate XML scripts from recent Markdown posts
 2. `video` - Generate videos from existing XML scripts
-3. `genera` - Generate both scripts and videos from posts
+3. `generate` - Generate both scripts and videos from posts
 4. `help` - Show available commands
 5. `quit` - Exit the program
 
@@ -159,7 +159,7 @@ docker-compose run --rm md2video video
 
 3. Generate both scripts and videos in one command:
 ```bash
-docker-compose run --rm md2video genera
+docker-compose run --rm md2video generate
 ```
 
 ### Clean up Docker environment:
@@ -315,6 +315,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Uses `gTTS` for text-to-speech synthesis
+- Uses `gTTS` or `Azure Speech Services` for text-to-speech synthesis
 - Uses `moviepy` for video processing
 - Uses `python-frontmatter` for Markdown processing
