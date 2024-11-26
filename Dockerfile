@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN pip install -e ".[test]"
 
-# Comando per eseguire i test
-CMD ["pytest", "--cov=src", "--cov-report=term-missing"]
+# Usa il comando installato da setup.py
+CMD ["md2video"]
