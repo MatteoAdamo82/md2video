@@ -86,48 +86,112 @@ AUDIO_BITRATE=192k           # Audio bitrate
 SPEECH_LANG=it               # Text-to-speech language
 ```
 
+### Development \ Test Environment
+```ini
+# Environment
+APP_ENV=dev
+
+# Development TTS Settings
+DEV_TTS_PROVIDER=gtts # Uses Google TTS
+DEV_TTS_LANG=it
+```
+
+### Production Environment
+```ini
+# Environment
+APP_ENV=prod
+
+# Production TTS Settings
+PROD_TTS_PROVIDER=azure   # Uses Azure Speech Services
+PROD_TTS_LANG=it-IT
+AZURE_SPEECH_KEY=your_key_here
+AZURE_SPEECH_REGION=westeurope
+AZURE_VOICE_NAME=it-IT-IsabellaNeural
+```
+
 ## Usage
 
-### CLI Commands
-
-The application provides several CLI commands:
+### Interactive CLI Commands
 
 1. Launch interactive CLI:
 ```bash
 docker-compose run --rm md2video
 ```
 
-2. Generate XML scripts from Markdown posts:
+Once inside the CLI interface:
+
+1. `script` - Generate XML scripts from recent Markdown posts
+2. `video` - Generate videos from existing XML scripts
+3. `genera` - Generate both scripts and videos from posts
+4. `help` - Show available commands
+5. `quit` - Exit the program
+
+### Environment-based Execution (Default configuration)
+
+- Development mode uses Google TTS for simpler testing and development
+- Production mode uses Azure Speech Services for higher quality output
+- Switch between environments by setting `APP_ENV` in your .env file
+
+Example production setup:
+```bash
+# Set production environment
+echo "APP_ENV=prod" > .env
+
+# Add Azure credentials
+echo "AZURE_SPEECH_KEY=your_key" >> .env
+echo "AZURE_SPEECH_REGION=westeurope" >> .env
+
+# Run the application
+docker-compose run --rm md2video
+```
+
+### Direct CLI commands:
+
+1. Generate XML scripts from Markdown posts:
 ```bash
 docker-compose run --rm md2video script
 ```
 
-3. Generate video from an existing XML script:
+2Generate video from an existing XML script:
 ```bash
 docker-compose run --rm md2video video
 ```
 
-4. Generate both scripts and videos in one command:
+3. Generate both scripts and videos in one command:
 ```bash
 docker-compose run --rm md2video genera
 ```
 
-5. Clean up Docker environment:
+### Clean up Docker environment:
 ```bash
 docker-compose down --remove-orphans
 ```
 
-### Directory Structure
+## Project Structure
 
 ```
 md2video/
-├── content/             # Input Markdown posts
-├── video_output/        # Generated videos
-│   ├── assets/          # Custom backgrounds
-│   ├── temp/            # Temporary files
-│   └── videos/          # Final videos
-├── video_scripts/       # Generated XML scripts
-└── tests/               # Test files
+├── content/                       # Input Markdown posts
+├── src/
+│   ├── tts/                       # TTS providers implementation
+│   │   ├── providers/
+│   │   │   ├── base.py
+│   │   │   ├── gtts.py
+│   │   │   └── azure.py
+│   │   └── factory.py
+│   ├── processors/                # Main processors
+│   │   ├── blog_processor.py
+│   │   ├── script_processor.py
+│   │   └── video_processor.py
+│   ├── config.py                   # Configuration management
+│   ├── cli.py                     # CLI interface
+│   └── video_generator.py         # Video generator
+├── video_output/                  # Generated videos
+│   ├── assets/                    # Custom backgrounds
+│   ├── temp/                      # Temporary files
+│   └── videos/                    # Final videos
+├── video_scripts/                 # Generated XML scripts
+└── tests/                         # Test files
 ```
 
 ## Development

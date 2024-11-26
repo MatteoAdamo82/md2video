@@ -18,11 +18,16 @@ class Config:
         """Inizializza la configurazione dal file .env"""
         load_dotenv()
 
+        # Directory paths - FIRST
         self.CONTENT_DIR = Path(os.getenv('CONTENT_DIR', './content'))
         self.SCRIPT_DIR = Path(os.getenv('SCRIPT_DIR', './video_scripts'))
         self.OUTPUT_DIR = Path(os.getenv('OUTPUT_DIR', './video_output'))
 
-        # Log dei path
+        # Directory interne a OUTPUT_DIR
+        self.TEMP_DIR = self.OUTPUT_DIR / 'temp'
+        self.ASSETS_DIR = self.OUTPUT_DIR / 'assets'
+
+        # Log dei path - AFTER directories are initialized
         logging.info(f"=== Config Debug Info ===")
         logging.info(f"CONTENT_DIR from env: {os.getenv('CONTENT_DIR')}")
         logging.info(f"SCRIPT_DIR from env: {os.getenv('SCRIPT_DIR')}")
@@ -30,10 +35,6 @@ class Config:
         logging.info(f"Resolved CONTENT_DIR: {self.CONTENT_DIR}")
         logging.info(f"Resolved SCRIPT_DIR: {self.SCRIPT_DIR}")
         logging.info(f"Resolved OUTPUT_DIR: {self.OUTPUT_DIR}")
-
-        # Directory interne a OUTPUT_DIR
-        self.TEMP_DIR = self.OUTPUT_DIR / 'temp'
-        self.ASSETS_DIR = self.OUTPUT_DIR / 'assets'
 
         # Video settings
         self.VIDEO_WIDTH = int(os.getenv('VIDEO_WIDTH', '1920'))
@@ -74,12 +75,25 @@ class Config:
 
         # Processing
         self.NUM_POSTS = int(os.getenv('NUM_POSTS', '5'))
-        self.SPEECH_LANG = os.getenv('SPEECH_LANG', 'it')
 
         # Effects
         self.DEFAULT_EFFECT = os.getenv('DEFAULT_EFFECT', 'fade')
         self.TRANSITION_DURATION = float(os.getenv('TRANSITION_DURATION', '0.5'))
         self.PAUSE_DURATION = float(os.getenv('PAUSE_DURATION', '0.3'))
+
+        # TTS Configuration
+        self.APP_ENV = os.getenv('APP_ENV', 'dev')
+        if self.APP_ENV == 'prod':
+            self.TTS_PROVIDER = os.getenv('PROD_TTS_PROVIDER', 'azure')
+            self.SPEECH_LANG = os.getenv('PROD_TTS_LANG', 'it-IT')
+
+            # Azure specific settings
+            self.AZURE_SPEECH_KEY = os.getenv('AZURE_SPEECH_KEY')
+            self.AZURE_SPEECH_REGION = os.getenv('AZURE_SPEECH_REGION')
+            self.AZURE_VOICE_NAME = os.getenv('AZURE_VOICE_NAME', 'it-IT-IsabellaNeural')
+        else:
+            self.TTS_PROVIDER = os.getenv('DEV_TTS_PROVIDER', 'gtts')
+            self.SPEECH_LANG = os.getenv('DEV_TTS_LANG', 'it')
 
         self._create_directories()
 

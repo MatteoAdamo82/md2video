@@ -14,13 +14,19 @@ setup(
         'Pillow>=9.5.0',
         'python-frontmatter>=1.0.0',
         'python-dotenv>=1.0.0',
-        'emoji'
+        'emoji',
+        'azure-cognitiveservices-speech>=1.34.0'
     ],
     extras_require={
         'test': [
             'pytest>=7.4.4',
             'pytest-cov>=4.1.0',
             'pytest-mock>=3.12.0',
+        ],
+    },
+    entry_points={
+        'console_scripts': [
+            'md2video=src.cli:main',
         ],
     },
     python_requires='>=3.9',

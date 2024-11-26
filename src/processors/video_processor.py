@@ -1,12 +1,12 @@
-from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
-from gtts import gTTS
-from moviepy.editor import *
 from typing import Dict, List
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import *
+from pathlib import Path
 import os
 import xml.etree.ElementTree as ET
 from ..base_processor import BaseProcessor
 import logging
+from ..tts import EnhancedTTSFactory
 
 class VideoEffect:
     """Strategy pattern per gli effetti video"""
@@ -32,6 +32,8 @@ class VideoProcessor(BaseProcessor):
 
     def __init__(self):
         super().__init__()
+        # Inizializza il TTS provider attraverso il factory
+        self.tts_provider = EnhancedTTSFactory.create_provider()
         self.effects = {
             'fade': VideoEffect.fade,
             'slide_left': lambda clip: VideoEffect.slide_left(clip, self.config.VIDEO_WIDTH),
@@ -212,74 +214,83 @@ class VideoProcessor(BaseProcessor):
         image.save(output_path)
 
     def _create_audio(self, text: str, output_path: Path, pause: float):
-        """Crea l'audio da testo"""
-        try:
-            # Genera l'audio base
-            tts = gTTS(text=text, lang=self.config.SPEECH_LANG)
-            temp_path = str(output_path).replace('.mp3', '_temp.mp3')
-            tts.save(temp_path)
+            """Crea l'audio da testo"""
+            try:
+                # Directory temporanea per i file audio
+                temp_path = str(output_path).replace('.mp3', '_temp.mp3')
 
-            # Carica l'audio generato
-            audio = AudioFileClip(temp_path)
-
-            if pause > 0:
-                # Crea il silenzio
-                silence = AudioClip(
-                    lambda t: 0,
-                    duration=pause
-                ).set_fps(self.config.AUDIO_FPS)
-
-                # Combina audio e silenzio
-                final_audio = CompositeAudioClip([
-                    audio,
-                    silence.set_start(audio.duration)
-                ])
-
-                # Ottieni la durata totale prevista
-                expected_duration = audio.duration + pause
-
-                # Salva l'audio finale
-                final_audio.write_audiofile(
-                    str(output_path),
-                    fps=self.config.AUDIO_FPS,
-                    codec=self.config.AUDIO_CODEC,
-                    bitrate=self.config.AUDIO_BITRATE,
-                    write_logfile=False,
-                    verbose=False
+                # Genera l'audio usando il provider TTS configurato
+                success = self.tts_provider.synthesize(
+                    text=text,
+                    output_path=Path(temp_path),
+                    language=self.config.SPEECH_LANG
                 )
 
-                # Verifica la durata finale
-                check_audio = AudioFileClip(str(output_path))
-                if abs(check_audio.duration - expected_duration) > 0.01:
-                    self.logger.warning(
-                        f"Audio duration mismatch. Expected: {expected_duration:.2f}s, "
-                        f"Got: {check_audio.duration:.2f}s"
+                if not success:
+                    self.logger.error("TTS synthesis failed")
+                    raise Exception("Speech synthesis failed")
+
+                # Carica l'audio generato
+                audio = AudioFileClip(temp_path)
+
+                if pause > 0:
+                    # Crea il silenzio
+                    silence = AudioClip(
+                        lambda t: 0,
+                        duration=pause
+                    ).set_fps(self.config.AUDIO_FPS)
+
+                    # Combina audio e silenzio
+                    final_audio = CompositeAudioClip([
+                        audio,
+                        silence.set_start(audio.duration)
+                    ])
+
+                    # Ottieni la durata totale prevista
+                    expected_duration = audio.duration + pause
+
+                    # Salva l'audio finale
+                    final_audio.write_audiofile(
+                        str(output_path),
+                        fps=self.config.AUDIO_FPS,
+                        codec=self.config.AUDIO_CODEC,
+                        bitrate=self.config.AUDIO_BITRATE,
+                        write_logfile=False,
+                        verbose=False
                     )
-                check_audio.close()
 
-            else:
-                # Se non c'è pausa, usa direttamente l'audio originale
-                os.rename(temp_path, str(output_path))
+                    # Verifica la durata finale
+                    check_audio = AudioFileClip(str(output_path))
+                    if abs(check_audio.duration - expected_duration) > 0.01:
+                        self.logger.warning(
+                            f"Audio duration mismatch. Expected: {expected_duration:.2f}s, "
+                            f"Got: {check_audio.duration:.2f}s"
+                        )
+                    check_audio.close()
 
-        except Exception as e:
-            self.logger.error(f"Error creating audio: {str(e)}")
-            raise
+                else:
+                    # Se non c'è pausa, usa direttamente l'audio originale
+                    os.rename(temp_path, str(output_path))
 
-        finally:
-            # Pulizia
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                except:
-                    pass
+            except Exception as e:
+                self.logger.error(f"Error creating audio: {str(e)}")
+                raise
 
-            # Chiudi i clip audio
-            if 'audio' in locals():
-                audio.close()
-            if 'silence' in locals():
-                silence.close()
-            if 'final_audio' in locals():
-                final_audio.close()
+            finally:
+                # Pulizia
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+
+                # Chiudi i clip audio
+                if 'audio' in locals():
+                    audio.close()
+                if 'silence' in locals():
+                    silence.close()
+                if 'final_audio' in locals():
+                    final_audio.close()
 
     def _create_background(self) -> Image:
         """Crea lo sfondo per le slide"""
