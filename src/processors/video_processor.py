@@ -9,7 +9,7 @@ import logging
 from ..tts import EnhancedTTSFactory
 
 class VideoEffect:
-    """Strategy pattern per gli effetti video"""
+    """Strategy pattern for video effects"""
     @staticmethod
     def fade(clip):
         return clip.fadein(0.5).fadeout(0.5)
@@ -28,7 +28,7 @@ class VideoEffect:
         return clip.rotate(lambda t: 360 * t)
 
 class VideoProcessor(BaseProcessor):
-    """Processor per la generazione dei video"""
+    """Video generation processor"""
 
     def __init__(self):
         super().__init__()
@@ -42,7 +42,7 @@ class VideoProcessor(BaseProcessor):
         }
 
     def process(self, script_path: str) -> str:
-        """Processo principale di generazione video"""
+        """Main video generation process"""
         try:
             sections = self._parse_script(script_path)
             metadata = sections['metadata']
@@ -65,7 +65,7 @@ class VideoProcessor(BaseProcessor):
             raise
 
     def _render_final_video(self, clips: List[VideoFileClip], title: str) -> str:
-        """Renderizza il video finale"""
+        """Render final video"""
         output_file = os.path.join(
             self.config.OUTPUT_DIR,
             f"video_{title[:30].replace(' ', '_')}.mp4"
@@ -97,7 +97,7 @@ class VideoProcessor(BaseProcessor):
                 temp_dir.rmdir()
 
     def _parse_script(self, script_path: str) -> Dict:
-        """Parser dello script XML"""
+        """XML script parser"""
         tree = ET.parse(script_path)
         root = tree.getroot()
 
@@ -112,7 +112,7 @@ class VideoProcessor(BaseProcessor):
         }
 
     def _parse_sections(self, content: ET.Element) -> List[Dict]:
-        """Estrae le sezioni dallo script"""
+        """Extract sections from script"""
         sections = []
         for section in content.findall("section"):
             sections.append({
@@ -127,8 +127,7 @@ class VideoProcessor(BaseProcessor):
         return sections
 
     def _create_segment(self, section: Dict, segment_number: int) -> VideoFileClip:
-        """Crea un segmento video per una sezione"""
-        # Assicurati che la directory temp esista
+        """Create video segment for section"""
         temp_path = Path(self.config.TEMP_DIR)
         temp_path.mkdir(parents=True, exist_ok=True)
         self.logger.info(f"Using temp directory: {temp_path}")
@@ -146,23 +145,23 @@ class VideoProcessor(BaseProcessor):
             audio_path = temp_path / f'audio_{segment_number}_{i}.mp3'
 
             try:
-                # Crea slide e audio
+                # Create slides and audio
                 self._create_slide(speech['text'], image_path, section['level'])
                 self._create_audio(speech['text'], audio_path, speech['pause'])
 
                 self.logger.info(f"Created files: \nImage: {image_path} (exists: {image_path.exists()})\nAudio: {audio_path} (exists: {audio_path.exists()})")
 
-                # Carica l'audio
+                # Run audio
                 audio = AudioFileClip(str(audio_path))
-                # Crea il video
+                # Create video
                 video = ImageClip(str(image_path)).set_duration(audio.duration)
 
-                # Applica effetti se specificati
+                # Apply effects if required
                 effect_name = section.get('effect', 'fade')
                 if effect_name in self.effects:
                     video = self.effects[effect_name](video)
 
-                # Solo alla fine aggiungi l'audio
+                # add audio only at the end
                 video = video.set_audio(audio)
 
                 self.logger.info(f"Created segment {i} with audio duration: {audio.duration}")
@@ -184,11 +183,11 @@ class VideoProcessor(BaseProcessor):
 
     def _create_slide(self, text: str, output_path: Path, heading_level: int):
         """Crea una slide con testo"""
-        # Crea background
+        # Create background
         image = self._create_background()
         draw = ImageDraw.Draw(image)
 
-        # Configura il font
+        # Configure font
         font_size = self.config.FONT_SIZES.get(
             f'h{heading_level}' if heading_level in [1,2,3] else 'text'
         )
@@ -198,12 +197,12 @@ class VideoProcessor(BaseProcessor):
             self.logger.warning(f"Could not load font {self.config.FONT_PATH}, using default")
             font = ImageFont.load_default()
 
-        # Calcola il layout del testo
+        # Calculate text layout
         margin = int(self.config.VIDEO_WIDTH * self.config.TEXT_MARGIN)
         max_width = self.config.VIDEO_WIDTH - (2 * margin)
         lines = self._wrap_text(text, font, max_width)
 
-        # Disegna il testo
+        # Draw text
         y = (self.config.VIDEO_HEIGHT - (len(lines) * font_size * self.config.TEXT_LINE_SPACING)) / 2
 
         for line in lines:
@@ -216,10 +215,10 @@ class VideoProcessor(BaseProcessor):
     def _create_audio(self, text: str, output_path: Path, pause: float):
             """Crea l'audio da testo"""
             try:
-                # Directory temporanea per i file audio
+                # Temporary dir for audio files
                 temp_path = str(output_path).replace('.mp3', '_temp.mp3')
 
-                # Genera l'audio usando il provider TTS configurato
+                # Generate audio using the configured TTS provider
                 success = self.tts_provider.synthesize(
                     text=text,
                     output_path=Path(temp_path),
@@ -230,26 +229,26 @@ class VideoProcessor(BaseProcessor):
                     self.logger.error("TTS synthesis failed")
                     raise Exception("Speech synthesis failed")
 
-                # Carica l'audio generato
+                # Run generated audio
                 audio = AudioFileClip(temp_path)
 
                 if pause > 0:
-                    # Crea il silenzio
+                    # Create silence
                     silence = AudioClip(
                         lambda t: 0,
                         duration=pause
                     ).set_fps(self.config.AUDIO_FPS)
 
-                    # Combina audio e silenzio
+                    # Combine audio and silence
                     final_audio = CompositeAudioClip([
                         audio,
                         silence.set_start(audio.duration)
                     ])
 
-                    # Ottieni la durata totale prevista
+                    # Get the total expected duration
                     expected_duration = audio.duration + pause
 
-                    # Salva l'audio finale
+                    # Salve final audio
                     final_audio.write_audiofile(
                         str(output_path),
                         fps=self.config.AUDIO_FPS,
@@ -259,7 +258,7 @@ class VideoProcessor(BaseProcessor):
                         verbose=False
                     )
 
-                    # Verifica la durata finale
+                    # Check the final duration
                     check_audio = AudioFileClip(str(output_path))
                     if abs(check_audio.duration - expected_duration) > 0.01:
                         self.logger.warning(
@@ -269,7 +268,7 @@ class VideoProcessor(BaseProcessor):
                     check_audio.close()
 
                 else:
-                    # Se non c'è pausa, usa direttamente l'audio originale
+                    # If there is no pause, use the original audio directly
                     os.rename(temp_path, str(output_path))
 
             except Exception as e:
@@ -277,14 +276,14 @@ class VideoProcessor(BaseProcessor):
                 raise
 
             finally:
-                # Pulizia
+                # Clean
                 if os.path.exists(temp_path):
                     try:
                         os.remove(temp_path)
                     except:
                         pass
 
-                # Chiudi i clip audio
+                # Close audio clips
                 if 'audio' in locals():
                     audio.close()
                 if 'silence' in locals():
@@ -293,14 +292,14 @@ class VideoProcessor(BaseProcessor):
                     final_audio.close()
 
     def _create_background(self) -> Image:
-        """Crea lo sfondo per le slide"""
+        """Create the background for the slides"""
         image = Image.new('RGB', (self.config.VIDEO_WIDTH, self.config.VIDEO_HEIGHT))
         draw = ImageDraw.Draw(image)
 
-        # Converti colore hex in RGB
+        ## Convert hex color to RGB
         bg_color = tuple(int(self.config.BGCOLOR[i:i+2], 16) for i in (1, 3, 5))
 
-        # Crea gradiente verticale
+        # Create vertical gradient
         for y in range(self.config.VIDEO_HEIGHT):
             factor = 1 - y/self.config.VIDEO_HEIGHT * 0.2
             color = tuple(int(c * factor) for c in bg_color)
@@ -309,7 +308,7 @@ class VideoProcessor(BaseProcessor):
         return image
 
     def _wrap_text(self, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> List[str]:
-        """Divide il testo in linee che si adattano alla larghezza massima"""
+        """Divides text into lines that fit the maximum width"""
         words = text.split()
         lines = []
         current_line = []
@@ -332,7 +331,7 @@ class VideoProcessor(BaseProcessor):
         return lines
 
     def cleanup(self):
-        """Pulisce i file temporanei"""
+        """Cleans temporary files"""
         temp_dir = Path(self.config.TEMP_DIR)
         if temp_dir.exists():
             for file in temp_dir.glob('*'):
