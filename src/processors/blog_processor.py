@@ -7,10 +7,10 @@ from ..base_processor import BaseProcessor
 import logging
 
 class BlogProcessor(BaseProcessor):
-    """Processor per l'elaborazione dei post del blog"""
+    """Processor for blog posts"""
 
     def process(self, num_posts: int = None) -> List[Dict]:
-        """Recupera e processa i post più recenti"""
+        """Retrieve and process the most recent posts"""
         if num_posts is None:
             num_posts = self.config.NUM_POSTS
 
@@ -20,7 +20,7 @@ class BlogProcessor(BaseProcessor):
             md_files = []
             content_path = Path(self.config.CONTENT_DIR)
 
-            # Raccoglie tutti i file .md ricorsivamente
+            # Collect all .md files recursively
             for md_file in content_path.rglob('*.md'):
                 post = frontmatter.load(md_file)
                 md_files.append({
@@ -30,7 +30,7 @@ class BlogProcessor(BaseProcessor):
                     'content': post.content
                 })
 
-            # Ordina per data decrescente
+            # Sort by date descending
             md_files.sort(key=lambda x: x['date'], reverse=True)
 
             processed_posts = []
@@ -46,7 +46,7 @@ class BlogProcessor(BaseProcessor):
             raise
 
     def _process_post(self, file_data: Dict) -> Dict:
-        """Processa un singolo post"""
+        """Process a single post"""
         try:
             sections = self._parse_content(file_data['content'])
 
@@ -63,7 +63,7 @@ class BlogProcessor(BaseProcessor):
             return None
 
     def _parse_content(self, content: str) -> List[Dict]:
-        """Parse il contenuto markdown in sezioni strutturate"""
+        """Parse markdown content into structured sections"""
         sections = []
         current_section = {"level": 0, "title": "", "content": []}
 
