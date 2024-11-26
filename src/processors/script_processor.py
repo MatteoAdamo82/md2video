@@ -104,13 +104,13 @@ class ScriptProcessor(BaseProcessor):
 
         for component in components:
             if component['type'] == 'text':
-                # Divide il testo in frasi naturali
+                ## Splits text into natural sentences
                 sentences = self._split_into_sentences(component['content'])
                 for sentence in sentences:
                     if sentence.strip():
                         speech = ET.SubElement(section, "speech")
                         speech.text = self._clean_text(sentence)
-                        # Pausa più lunga per punti e esclamativi
+                        # Longer pause for full stops and exclamation marks
                         speech.set("pause", "0.7" if sentence.rstrip()[-1] in '.!?' else "0.3")
 
             elif component['type'] == 'list':
@@ -129,13 +129,13 @@ class ScriptProcessor(BaseProcessor):
         lines = paragraph.split('\n')
 
         for line in lines:
-            # Pattern per liste numerate (1. o 1) o lettere (a. o a))
+            # Pattern for numbered lists (1. or 1) or letters (a. or a))
             numbered_list = re.match(r'^\s*(?:\d+|[a-z])[).]\s+(.+)$', line.strip())
-            # Pattern per liste puntate
+            # Pattern for bulleted lists
             bulleted_list = re.match(r'^\s*[-*•]\s+(.+)$', line.strip())
 
             if numbered_list or bulleted_list:
-                # Se c'era del testo prima della lista, salvalo
+                # If there was text before the list, save it
                 if current_text and not list_started:
                     components.append({
                         "type": "text",
@@ -147,7 +147,7 @@ class ScriptProcessor(BaseProcessor):
                 list_item = numbered_list.group(1) if numbered_list else bulleted_list.group(1)
                 current_list.append(list_item)
             else:
-                # Se era in corso una lista, salvala
+                # If there was a list in progress, save it
                 if list_started:
                     components.append({
                         "type": "list",
@@ -159,7 +159,7 @@ class ScriptProcessor(BaseProcessor):
                 if line.strip():
                     current_text.append(line.strip())
 
-        # Gestione degli ultimi elementi
+        # Managing the latest elements
         if current_text and not list_started:
             components.append({
                 "type": "text",
@@ -175,33 +175,33 @@ class ScriptProcessor(BaseProcessor):
 
     def _split_into_sentences(self, text: str) -> List[str]:
         """Divide il testo in frasi naturali"""
-        # Pattern per la divisione delle frasi che preserva la punteggiatura
+        # Punctuation-preserving sentence division pattern
         pattern = r'([.!?])\s+'
         sentences = []
 
-        # Divide il testo usando il pattern
+        # Split text using pattern
         parts = re.split(pattern, text)
 
-        # Ricostruisce le frasi con la punteggiatura
+        # Reconstructs sentences with punctuation
         for i in range(0, len(parts)-1, 2):
             sentence = parts[i] + (parts[i+1] if i+1 < len(parts) else '')
             sentences.append(sentence)
 
-        # Aggiunge l'ultima parte se presente
+        # Adds the last part if exists
         if len(parts) % 2 == 1:
             sentences.append(parts[-1])
 
         return [s.strip() for s in sentences if s.strip()]
 
     def _clean_text(self, text: str) -> str:
-        """Pulisce il testo mantenendo la punteggiatura essenziale"""
-        # Rimuove emoji
+        """Cleans up text while maintaining essential punctuation"""
+        # Remove emoji
         text = emoji.replace_emoji(text, '')
 
-        # Rimuove caratteri non necessari mantenendo punteggiatura e apostrofi
+        # Removes unnecessary characters while keeping punctuation and apostrophes
         text = re.sub(r'[^\w\s,.!?;:\'\'-]', '', text)
 
-        # Rimuove spazi multipli
+        # Remove multiple spaces
         text = ' '.join(text.split())
 
         return text
