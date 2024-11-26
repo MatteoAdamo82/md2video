@@ -4,7 +4,7 @@ from .processors import BlogProcessor, ScriptProcessor, VideoProcessor
 from .base_processor import ProcessorCallback
 
 class VideoGenerator:
-    """Facade pattern per l'intero processo di generazione video"""
+    """Facade pattern for the entire video generation process"""
 
     def __init__(self):
         self.blog_processor = BlogProcessor()
@@ -14,14 +14,14 @@ class VideoGenerator:
 
     def set_callbacks(self, message_callback: Optional[Callable] = None,
                      progress_callback: Optional[Callable] = None):
-        """Imposta i callback per tutti i processor"""
+        """Set callbacks for all processors"""
         callback = ProcessorCallback(message_callback, progress_callback)
 
         for processor in [self.blog_processor, self.script_processor, self.video_processor]:
             processor.set_callbacks(message_callback, progress_callback)
 
     def generate_scripts(self, num_posts: Optional[int] = None) -> List[Dict]:
-        """Genera solo gli script dai post"""
+        """Only generate scripts from posts"""
         try:
             posts = self.blog_processor.process(num_posts)
             results = []
@@ -40,21 +40,17 @@ class VideoGenerator:
             raise Exception(f"Error generating scripts: {str(e)}")
 
     def generate_video(self, script_path: str) -> str:
-        """Genera un video da uno script esistente"""
+        """Generate a video from an existing script"""
         try:
             return self.video_processor.process(script_path)
         except Exception as e:
             raise Exception(f"Error generating video: {str(e)}")
 
     def process_recent_posts(self, num_posts: Optional[int] = None) -> List[Dict]:
-        """Processo completo: da post a video"""
+        """Complete process: from post to video"""
         try:
             results = []
-
-            # Genera gli script
             script_results = self.generate_scripts(num_posts)
-
-            # Genera i video per ogni script
             for item in script_results:
                 video_file = self.generate_video(item['script_file'])
                 results.append({
@@ -70,7 +66,7 @@ class VideoGenerator:
             raise Exception(f"Error processing posts: {str(e)}")
 
     def cleanup(self):
-            """Pulisce le risorse di tutti i processor, gestendo eventuali errori"""
+            """Cleans up resources from all processors, handling any errors"""
             errors = []
             for processor in [self.blog_processor, self.script_processor, self.video_processor]:
                 try:
@@ -81,7 +77,6 @@ class VideoGenerator:
             if errors:
                 self.logger.warning(f"Errors during cleanup: {', '.join(errors)}")
 
-# Example usage in CLI
 if __name__ == "__main__":
     def print_progress(info):
         print(f"Progress: {info['value']}% - {info['status']}")

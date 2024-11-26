@@ -91,7 +91,7 @@ def test_process_with_no_posts(blog_processor, tmp_path):
         assert result == []
 
 def test_process_with_multiple_posts(blog_processor, mock_content_dir):
-    # Crea multipli post di test
+    # Create multiple test posts
     for i in range(3):
         post = mock_content_dir / f"post_{i}.md"
         content = f"""---
@@ -105,9 +105,9 @@ Content for post {i}"""
 
     result = blog_processor.process(num_posts=2)
 
-    assert len(result) == 2  # Dovrebbe limitare a 2 post
-    assert result[0]['title'] == 'Post 2'  # Il più recente
-    assert result[1]['title'] == 'Post 1'  # Il secondo più recente
+    assert len(result) == 2  # Should limit to 2 posts
+    assert result[0]['title'] == 'Post 2'  # Most recent
+    assert result[1]['title'] == 'Post 1'  # Second most recent
 
 def test_error_handling(blog_processor):
     invalid_data = {

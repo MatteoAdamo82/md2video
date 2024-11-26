@@ -9,10 +9,10 @@ from ..base_processor import BaseProcessor
 import logging
 
 class ScriptProcessor(BaseProcessor):
-    """Processor per la generazione degli script"""
+    """Script generation processor"""
 
     def process(self, post: Dict) -> Tuple[str, str]:
-        """Genera uno script XML dal post"""
+        """Generate an XML script from the post"""
         try:
             root = self._create_xml_structure(post)
             xml_str = self._format_xml(root)
@@ -25,7 +25,7 @@ class ScriptProcessor(BaseProcessor):
             raise
 
     def _create_xml_structure(self, post: Dict) -> ET.Element:
-        """Crea la struttura XML dello script"""
+        """Create the XML structure of the script"""
         root = ET.Element("script", version="1.0")
 
         # Metadata
@@ -50,12 +50,12 @@ class ScriptProcessor(BaseProcessor):
         return root
 
     def _format_xml(self, root: ET.Element) -> str:
-        """Formatta l'XML in modo leggibile"""
+        """Format XML to be readable"""
         from xml.dom import minidom
         return minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
 
     def _save_script(self, xml_str: str, title: str) -> Path:
-        """Salva lo script in un file"""
+        """Save the script to a file"""
         filename = f"script_{title[:30]}_{datetime.now():%Y%m%d_%H%M%S}.xml"
         filepath = Path(self.config.SCRIPT_DIR) / filename
 
@@ -99,7 +99,7 @@ class ScriptProcessor(BaseProcessor):
             self._add_paragraph_content(sec, para)
 
     def _add_paragraph_content(self, section: ET.Element, paragraph: str):
-        """Aggiunge il contenuto del paragrafo, gestendo sia testo che liste"""
+        """Adds paragraph content, handling both text and lists"""
         components = self._parse_paragraph_components(paragraph)
 
         for component in components:
@@ -120,7 +120,7 @@ class ScriptProcessor(BaseProcessor):
                     list_item.text = self._clean_text(item)
 
     def _parse_paragraph_components(self, paragraph: str) -> List[Dict]:
-        """Analizza un paragrafo e lo divide in componenti (testo e liste)"""
+        """Paragraph parses and divides it into components (text and lists)"""
         components = []
         current_text = []
         current_list = []
@@ -174,7 +174,7 @@ class ScriptProcessor(BaseProcessor):
         return components
 
     def _split_into_sentences(self, text: str) -> List[str]:
-        """Divide il testo in frasi naturali"""
+        """Divide text into natural sentences"""
         # Punctuation-preserving sentence division pattern
         pattern = r'([.!?])\s+'
         sentences = []

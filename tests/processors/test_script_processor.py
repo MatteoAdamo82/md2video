@@ -31,7 +31,7 @@ def sample_post():
 
 @pytest.fixture
 def script_processor(tmp_path):
-    with patch('src.base_processor.Config') as mock_config:  # Cambio qui: patchiamo Config nel base_processor
+    with patch('src.base_processor.Config') as mock_config:
         mock_config.return_value.SCRIPT_DIR = tmp_path
         mock_config.return_value.INTRO_TEXT = "Welcome"
         mock_config.return_value.OUTRO_TEXT = "Thanks"
@@ -40,18 +40,18 @@ def script_processor(tmp_path):
 def test_create_xml_structure(script_processor, sample_post):
     root = script_processor._create_xml_structure(sample_post)
 
-    # Verifica struttura base
+    # Check basic structure
     assert root.tag == 'script'
     assert root.get('version') == '1.0'
 
-    # Verifica metadata
+    # Verify metadata
     metadata = root.find('metadata')
     assert metadata is not None
     assert metadata.find('title').text == 'Test Post'
     assert metadata.find('url').text == 'https://example.com/test'
     assert metadata.find('date').text == '2024-01-01'
 
-    # Verifica content
+    # Verify content
     content = root.find('content')
     assert content is not None
     sections = content.findall('section')
@@ -110,18 +110,18 @@ def test_add_content_section(script_processor):
     assert len(speeches) > 0
 
 def test_parse_paragraph_components(script_processor):
-    # Test paragrafo normale
+    # Normal paragraph test
     components = script_processor._parse_paragraph_components("Normal paragraph text")
     assert len(components) == 1
     assert components[0]['type'] == 'text'
 
-    # Test lista puntata
+    # Bullet list test
     components = script_processor._parse_paragraph_components("- Item 1\n- Item 2")
     assert len(components) == 1
     assert components[0]['type'] == 'list'
     assert len(components[0]['items']) == 2
 
-    # Test lista numerata
+    # Numbered list test
     components = script_processor._parse_paragraph_components("1. Item 1\n2. Item 2")
     assert len(components) == 1
     assert components[0]['type'] == 'list'

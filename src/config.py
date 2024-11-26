@@ -5,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 
 class Config:
-    """Singleton pattern per la gestione della configurazione"""
+    """Configuration management"""
     _instance = None
 
     def __new__(cls):
@@ -15,19 +15,19 @@ class Config:
         return cls._instance
 
     def _initialize(self):
-        """Inizializza la configurazione dal file .env"""
+        """Init configuration from .env file"""
         load_dotenv()
 
-        # Directory paths - FIRST
+        # Directory paths
         self.CONTENT_DIR = Path(os.getenv('CONTENT_DIR', './content'))
         self.SCRIPT_DIR = Path(os.getenv('SCRIPT_DIR', './video_scripts'))
         self.OUTPUT_DIR = Path(os.getenv('OUTPUT_DIR', './video_output'))
 
-        # Directory interne a OUTPUT_DIR
+        # OUTPUT_DIR in Directory
         self.TEMP_DIR = self.OUTPUT_DIR / 'temp'
         self.ASSETS_DIR = self.OUTPUT_DIR / 'assets'
 
-        # Log dei path - AFTER directories are initialized
+        # Log path directories are initialized
         logging.info(f"=== Config Debug Info ===")
         logging.info(f"CONTENT_DIR from env: {os.getenv('CONTENT_DIR')}")
         logging.info(f"SCRIPT_DIR from env: {os.getenv('SCRIPT_DIR')}")
@@ -98,14 +98,14 @@ class Config:
         self._create_directories()
 
     def _create_directories(self):
-        """Crea le directory necessarie"""
+        """Create necessary directories"""
         for dir_path in [self.CONTENT_DIR, self.SCRIPT_DIR, self.OUTPUT_DIR,
                         self.TEMP_DIR, self.ASSETS_DIR]:
             dir_path.mkdir(parents=True, exist_ok=True)
 
     @property
     def video_config(self) -> Dict[str, Any]:
-        """Restituisce la configurazione specifica per il video"""
+        """Returns the configuration for video"""
         return {
             'width': self.VIDEO_WIDTH,
             'height': self.VIDEO_HEIGHT,
@@ -115,7 +115,7 @@ class Config:
 
     @property
     def style_config(self) -> Dict[str, Any]:
-        """Restituisce la configurazione dello stile"""
+        """RReturns style configuration"""
         return {
             'bgcolor': self.BGCOLOR,
             'text_color': self.TEXT_COLOR,

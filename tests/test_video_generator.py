@@ -16,21 +16,21 @@ def sample_post():
     }
 
 def test_video_generator_initialization():
-    """Test dell'inizializzazione del VideoGenerator"""
+    """Testing VideoGenerator Initialization"""
     generator = VideoGenerator()
     assert generator.blog_processor is not None
     assert generator.script_processor is not None
     assert generator.video_processor is not None
 
 def test_set_callbacks():
-    """Test dell'impostazione dei callback"""
+    """Testing the callback setting"""
     generator = VideoGenerator()
     message_mock = Mock()
     progress_mock = Mock()
 
     generator.set_callbacks(message_mock, progress_mock)
 
-    # Verifica che i callback siano stati impostati per tutti i processor
+    # Verify that callbacks have been set for all processors
     assert generator.blog_processor.callback.message_callback == message_mock
     assert generator.blog_processor.callback.progress_callback == progress_mock
     assert generator.script_processor.callback.message_callback == message_mock
@@ -42,10 +42,10 @@ def test_set_callbacks():
 @patch('src.processors.script_processor.ScriptProcessor.process')
 def test_generate_scripts(mock_script_process, mock_blog_process, video_generator):
     """Test della generazione degli script"""
-    # Mock dei risultati del blog processor
+    # Blog Processor Results Mock
     mock_blog_process.return_value = [{'title': 'Post 1', 'url': 'http://example.com/1'}]
 
-    # Mock dei risultati dello script processor
+    # Mock of the script processor results
     mock_script_process.return_value = ('script1.xml', '<xml>content</xml>')
 
     results = video_generator.generate_scripts(num_posts=1)
@@ -56,7 +56,7 @@ def test_generate_scripts(mock_script_process, mock_blog_process, video_generato
     assert results[0]['url'] == 'http://example.com/1'
 
 def test_generate_scripts_with_error(video_generator):
-    """Test della gestione degli errori durante la generazione degli script"""
+    """Testing error handling during script generation"""
     with patch('src.processors.blog_processor.BlogProcessor.process') as mock_blog_process:
         mock_blog_process.side_effect = Exception("Blog processing error")
 
@@ -67,7 +67,7 @@ def test_generate_scripts_with_error(video_generator):
 
 @patch('src.processors.video_processor.VideoProcessor.process')
 def test_generate_video(mock_video_process, video_generator):
-    """Test della generazione del video"""
+    """Video Generation Test"""
     mock_video_process.return_value = 'output.mp4'
 
     result = video_generator.generate_video('script.xml')
@@ -76,7 +76,7 @@ def test_generate_video(mock_video_process, video_generator):
     mock_video_process.assert_called_once_with('script.xml')
 
 def test_generate_video_with_error(video_generator):
-    """Test della gestione degli errori durante la generazione del video"""
+    """Testing error handling during video generation"""
     with patch('src.processors.video_processor.VideoProcessor.process') as mock_video_process:
         mock_video_process.side_effect = Exception("Video processing error")
 
@@ -88,7 +88,7 @@ def test_generate_video_with_error(video_generator):
 @patch('src.video_generator.VideoGenerator.generate_scripts')
 @patch('src.video_generator.VideoGenerator.generate_video')
 def test_process_recent_posts(mock_generate_video, mock_generate_scripts, video_generator):
-    """Test del processo completo di generazione"""
+    """Testing the complete generation process"""
     # Mock dei risultati degli script
     mock_generate_scripts.return_value = [
         {
@@ -110,7 +110,7 @@ def test_process_recent_posts(mock_generate_video, mock_generate_scripts, video_
     assert results[0]['url'] == 'http://example.com/1'
 
 def test_process_recent_posts_with_script_error(video_generator):
-    """Test della gestione degli errori durante la generazione degli script nel processo completo"""
+    """Testing error handling during script generation in the complete process"""
     with patch('src.video_generator.VideoGenerator.generate_scripts') as mock_generate_scripts:
         mock_generate_scripts.side_effect = Exception("Script generation error")
 
@@ -120,7 +120,7 @@ def test_process_recent_posts_with_script_error(video_generator):
         assert "Error processing posts" in str(exc_info.value)
 
 def test_process_recent_posts_with_video_error(video_generator):
-    """Test della gestione degli errori durante la generazione dei video nel processo completo"""
+    """Testing error handling during video generation in the complete process"""
     with patch('src.video_generator.VideoGenerator.generate_scripts') as mock_generate_scripts:
         mock_generate_scripts.return_value = [
             {
@@ -147,36 +147,36 @@ def test_process_recent_posts_empty_result(video_generator):
         assert results == []
 
 def test_cleanup(video_generator):
-    """Test della pulizia delle risorse"""
-    # Mock dei processor
+    """Resource Cleanup Test"""
+    # Mock of processors
     video_generator.blog_processor.cleanup = Mock()
     video_generator.script_processor.cleanup = Mock()
     video_generator.video_processor.cleanup = Mock()
 
     video_generator.cleanup()
 
-    # Verifica che cleanup sia stato chiamato per tutti i processor
+    # Verify that cleanup has been called for all processors
     video_generator.blog_processor.cleanup.assert_called_once()
     video_generator.script_processor.cleanup.assert_called_once()
     video_generator.video_processor.cleanup.assert_called_once()
 
 def test_cleanup_with_error(video_generator):
-    """Test della gestione degli errori durante la pulizia"""
+    """Testing error handling during cleanup"""
     video_generator.blog_processor.cleanup = Mock(side_effect=Exception("Cleanup error"))
     video_generator.script_processor.cleanup = Mock()
     video_generator.video_processor.cleanup = Mock()
 
-    # La cleanup non dovrebbe propagare l'errore
+    # Cleanup should not propagate the error
     video_generator.cleanup()
 
-    # Verifica che tutti i cleanup siano stati chiamati nonostante l'errore
+    # Verify that all cleanups were called despite the error
     video_generator.blog_processor.cleanup.assert_called_once()
     video_generator.script_processor.cleanup.assert_called_once()
     video_generator.video_processor.cleanup.assert_called_once()
 
 @patch('src.processors.blog_processor.BlogProcessor.process')
 def test_generate_scripts_with_custom_num_posts(mock_blog_process, video_generator):
-    """Test della generazione degli script con numero personalizzato di post"""
+    """Testing script generation with custom number of posts"""
     mock_blog_process.return_value = []
 
     video_generator.generate_scripts(num_posts=5)
@@ -184,7 +184,7 @@ def test_generate_scripts_with_custom_num_posts(mock_blog_process, video_generat
 
 @patch('src.video_generator.VideoGenerator.generate_scripts')
 def test_process_recent_posts_with_custom_num_posts(mock_generate_scripts, video_generator):
-    """Test del processo completo con numero personalizzato di post"""
+    """TFull process test with custom number of posts"""
     mock_generate_scripts.return_value = []
 
     video_generator.process_recent_posts(num_posts=5)

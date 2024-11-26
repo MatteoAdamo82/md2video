@@ -32,7 +32,7 @@ class VideoProcessor(BaseProcessor):
 
     def __init__(self):
         super().__init__()
-        # Inizializza il TTS provider attraverso il factory
+        # Initialize the TTS provider through the factory
         self.tts_provider = EnhancedTTSFactory.create_provider()
         self.effects = {
             'fade': VideoEffect.fade,

@@ -4,12 +4,12 @@ import logging
 from src.base_processor import BaseProcessor, ProcessorCallback
 
 def test_processor_callback_creation():
-    # Test creazione callback con parametri None
+    # Test creating callback with None parameters
     callback = ProcessorCallback()
     assert callback.message_callback is None
     assert callback.progress_callback is None
 
-    # Test creazione callback con funzioni mock
+    # Test creating callbacks with mock functions
     message_mock = Mock()
     progress_mock = Mock()
     callback = ProcessorCallback(message_mock, progress_mock)
@@ -17,18 +17,18 @@ def test_processor_callback_creation():
     assert callback.progress_callback == progress_mock
 
 def test_processor_callback_log_message():
-    # Test logging con callback definito
+    # Test logging with defined callback
     message_mock = Mock()
     callback = ProcessorCallback(message_callback=message_mock)
     callback.log_message("Test message")
     message_mock.assert_called_once_with("Test message")
 
-    # Test logging senza callback (non dovrebbe sollevare eccezioni)
+    # Test logging without callback (should not throw exceptions)
     callback = ProcessorCallback()
-    callback.log_message("Test message")  # Non dovrebbe fare nulla
+    callback.log_message("Test message")
 
 def test_processor_callback_update_progress():
-    # Test progress con callback definito
+    # Test progress with callback defined
     progress_mock = Mock()
     callback = ProcessorCallback(progress_callback=progress_mock)
     callback.update_progress(50.0, "Half done")
@@ -37,12 +37,12 @@ def test_processor_callback_update_progress():
         "status": "Half done"
     })
 
-    # Test progress senza callback (non dovrebbe sollevare eccezioni)
+    # Test progress without callback (should not throw exceptions)
     callback = ProcessorCallback()
-    callback.update_progress(50.0, "Half done")  # Non dovrebbe fare nulla
+    callback.update_progress(50.0, "Half done")
 
 def test_processor_callback_error_handling():
-    # Test gestione errori nel message callback
+    # Test error handling in message callback
     def failing_callback(msg):
         raise Exception("Test error")
 
@@ -51,7 +51,7 @@ def test_processor_callback_error_handling():
         callback.log_message("Test")
         mock_error.assert_called_once()
 
-    # Test gestione errori nel progress callback
+    # Test error handling in progress callback
     def failing_progress(progress):
         raise Exception("Test error")
 
@@ -61,7 +61,7 @@ def test_processor_callback_error_handling():
         mock_error.assert_called_once()
 
 class TestProcessor(BaseProcessor):
-    """Processor concreto per testing"""
+    """Concrete processor for testing"""
     def process(self, *args, **kwargs):
         return "processed"
 
