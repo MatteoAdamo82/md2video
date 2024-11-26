@@ -9,10 +9,10 @@ from .video_generator import VideoGenerator
 
 class VideoGeneratorCLI(cmd.Cmd):
     intro = f"""\033[1m{'-'*50}
-Welcome to Video Generator!
+Welcome to md2Video Generator!
 Type 'help' o '?' for command list.
 {'-'*50}\033[0m"""
-    prompt = '\033[94m(video)\033[0m '
+    prompt = '\033[94m(md2video)\033[0m '
 
     def __init__(self, stdout=None):
         super().__init__()
@@ -79,7 +79,7 @@ Type 'help' o '?' for command list.
         except Exception as e:
             print(f"\n❌ Error: {str(e)}", file=self.stdout)
 
-    def do_genera(self, arg: str) -> None:
+    def do_generate(self, arg: str) -> None:
         """Generate both scripts and videos from posts"""
         try:
             print("\nGenerating scripts and videos...", file=self.stdout)
@@ -103,11 +103,11 @@ Type 'help' o '?' for command list.
             super().do_help(arg)
         else:
             print("\n Available commands:", file=self.stdout)
-            print("  script  - Generate script only from post", file=self.stdout)
-            print("  video   - Generate videos from existing XML scripts", file=self.stdout)
-            print("  genera  - Generate both scripts and videos from posts", file=self.stdout)
-            print("  help    - Show available commands", file=self.stdout)
-            print("  quit    - Exit the program", file=self.stdout)
+            print("  script    - Generate script only from post", file=self.stdout)
+            print("  video     - Generate videos from existing XML scripts", file=self.stdout)
+            print("  generate  - Generate both scripts and videos from posts", file=self.stdout)
+            print("  help      - Show available commands", file=self.stdout)
+            print("  quit      - Exit the program", file=self.stdout)
             print(file=self.stdout)
 
     def do_quit(self, arg: str) -> bool:
