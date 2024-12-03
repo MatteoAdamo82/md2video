@@ -16,8 +16,36 @@ class VideoEffect:
 
     @staticmethod
     def slide_left(clip, width):
-        return clip.set_position(lambda t: ('center', 'center') if t > 0.5
-                               else (width * (1-2*t), 'center'))
+        duration = clip.duration
+
+        def position_function(t):
+            progress = t / duration
+            if progress <= 0.5:
+                x = width - (width * (progress * 2))
+                return (x, 'center')
+            else:
+                return ('center', 'center')
+
+        animated_clip = clip.set_position(position_function)
+
+        return animated_clip.fadein(0.3)
+
+    @staticmethod
+    def zoom_in(clip):
+        return clip.resize(lambda t: 1 + 0.5 * t)
+
+    @staticmethod
+    def rotate_cw(clip):
+        return clip.rotate(lambda t: 360 * t)
+
+    @staticmethod
+    def zoom(clip):
+        duration = clip.duration
+        def zoom_function(t):
+            progress = t / duration
+            # Parte da 0.8x, arriva a 1.2x
+            return 0.8 + (0.4 * progress)
+        return clip.resize(zoom_function).fadein(0.3)
 
     @staticmethod
     def zoom_in(clip):
@@ -118,6 +146,8 @@ class VideoProcessor(BaseProcessor):
             sections.append({
                 'level': int(section.get("level")),
                 'type': section.get("type"),
+                'background': section.get("background"),  # Aggiungiamo questa riga
+                'animation': section.get("animation"),    # Aggiungiamo questa riga
                 'heading': section.find("heading").text if section.find("heading") is not None else "",
                 'speeches': [{
                     'text': speech.text,
@@ -133,7 +163,6 @@ class VideoProcessor(BaseProcessor):
         self.logger.info(f"Using temp directory: {temp_path}")
 
         clips = []
-
         total_speeches = len(section['speeches'])
         for i, speech in enumerate(section['speeches']):
             self.callback.update_progress(
@@ -145,26 +174,57 @@ class VideoProcessor(BaseProcessor):
             audio_path = temp_path / f'audio_{segment_number}_{i}.mp3'
 
             try:
-                # Create slides and audio
-                self._create_slide(speech['text'], image_path, section['level'])
+                # Gestione dello sfondo personalizzato
+                if section.get('background'):
+                    bg_path = Path(self.config.ASSETS_DIR) / section['background']
+                    if bg_path.exists():
+                        # Creiamo una copia dello sfondo
+                        background = Image.open(bg_path)
+                        if background.size != (self.config.VIDEO_WIDTH, self.config.VIDEO_HEIGHT):
+                            background = background.resize((self.config.VIDEO_WIDTH, self.config.VIDEO_HEIGHT))
+
+                        # Aggiungiamo il testo sullo sfondo
+                        draw = ImageDraw.Draw(background)
+                        font_size = self.config.FONT_SIZES.get(
+                            f'h{section["level"]}' if section["level"] in [1,2,3] else 'text'
+                        )
+                        font = ImageFont.truetype(self.config.FONT_PATH, font_size)
+
+                        # Calcoliamo il layout del testo
+                        margin = int(self.config.VIDEO_WIDTH * self.config.TEXT_MARGIN)
+                        max_width = self.config.VIDEO_WIDTH - (2 * margin)
+                        lines = self._wrap_text(speech['text'], font, max_width)
+
+                        # Disegniamo il testo con ombra
+                        y = (self.config.VIDEO_HEIGHT - (len(lines) * font_size * self.config.TEXT_LINE_SPACING)) / 2
+                        for line in lines:
+                            x = (self.config.VIDEO_WIDTH - font.getlength(line)) / 2
+                            # Ombra
+                            draw.text((x + 2, y + 2), line, font=font, fill='black')
+                            # Testo principale
+                            draw.text((x, y), line, font=font, fill=self.config.TEXT_COLOR)
+                            y += font_size * self.config.TEXT_LINE_SPACING
+
+                        background.save(image_path)
+                    else:
+                        self.logger.warning(f"Background image not found: {bg_path}, using default")
+                        self._create_slide(speech['text'], image_path, section['level'])
+                else:
+                    self._create_slide(speech['text'], image_path, section['level'])
+
                 self._create_audio(speech['text'], audio_path, speech['pause'])
 
-                self.logger.info(f"Created files: \nImage: {image_path} (exists: {image_path.exists()})\nAudio: {audio_path} (exists: {audio_path.exists()})")
-
-                # Run audio
                 audio = AudioFileClip(str(audio_path))
-                # Create video
                 video = ImageClip(str(image_path)).set_duration(audio.duration)
 
-                # Apply effects if required
-                effect_name = section.get('effect', 'fade')
-                if effect_name in self.effects:
-                    video = self.effects[effect_name](video)
+                # Applicazione dell'animazione specificata
+                animation = section.get('animation')
+                if animation and animation in self.effects:
+                    video = self.effects[animation](video)
+                else:
+                    video = self.effects['fade'](video)
 
-                # add audio only at the end
                 video = video.set_audio(audio)
-
-                self.logger.info(f"Created segment {i} with audio duration: {audio.duration}")
                 clips.append(video)
 
             except Exception as e:
