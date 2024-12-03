@@ -6,9 +6,8 @@ MD2Video is a Python application that automatically converts Markdown blog posts
 
 - Converts Markdown posts to narrated videos automatically
 - Generates intermediate XML script files that can be manually edited
-- Supports custom backgrounds and animations for video sections
+- Supports custom backgrounds
 - Text-to-speech synthesis in multiple languages (default: Italian)
-- Smooth transitions and effects between video sections
 - CLI interface for easy operation
 - Configurable video and audio settings
 - Docker support for easy deployment
@@ -235,33 +234,13 @@ The application generates and processes XML scripts in the following format:
         <date>2024-11-20</date>
     </metadata>
     <content>
-        <section level="1" type="intro" background="intro_bg.png" animation="zoom">
+        <section level="1" type="intro" background="intro_bg.png">
             <heading>Introduction</heading>
             <speech pause="0.5">Introduction text</speech>
         </section>
     </content>
 </script>
 ```
-
-## Available Effects
-
-### Transitions
-- `fade`: Fade in and out
-- `slide_left`: Slide from right to left
-- `slide_right`: Slide from left to right
-- `slide_up`: Slide from bottom to top
-- `slide_down`: Slide from top to bottom
-
-### Visual Effects
-- `zoom_in`: Progressive zoom in
-- `zoom_out`: Progressive zoom out
-- `zoom_pulse`: Subtle pulse effect
-- `rotate_cw`: Clockwise rotation
-- `rotate_ccw`: Counter-clockwise rotation
-
-### Combined Effects
-- `zoom_fade`: Fade with zoom
-- `rotate_fade`: Fade with rotation
 
 ## Custom Backgrounds
 
